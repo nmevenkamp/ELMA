@@ -18,7 +18,7 @@ Note: make sure the images you use with ELMA are in units of electron counts / p
 
 LICENSE (short):
 You are free to use ELMA for scientific or other purposes but we ask you
-to cite our work in case you publish results that involved the use of ELMA.
+to cite our work in case you publish results that involve the use of ELMA.
 
 
 The complete license can be found in the file LICENSE.txt that is part of this repository
