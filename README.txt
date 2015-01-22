@@ -8,6 +8,7 @@ ELMA is a small tool for denoising and analyzing High-Resolution STEM images. Th
 Executables are available for both Windows and MacOSX.
 
 ELMA supports the TIFF image format, as well as the following:
+
 read: .tiff, .tif, .dm3, .dm4, .png, .q2bz
 save: .tiff, .tif, .png, .q2bz
 
