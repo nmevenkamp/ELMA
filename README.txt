@@ -1,4 +1,4 @@
-### ELMA - ELectron Micrograph Analysis
+# ELMA - ELectron Micrograph Analysis
 
 Version 1.0
 
