@@ -14,9 +14,8 @@ save: .tiff, .tif, .png, .q2bz
 Note: images must be in units of electron counts / pixel
 
 
-LICENSE (short):
+LICENSE (in a nutshell):
 You are free to use ELMA for scientific or other purposes but we ask you to cite our work in case you publish results that involve the use of ELMA.
-
 
 The complete license can be found in the file LICENSE.txt that is part of this repository and accompanies the executables we distribute for Windows and MacOSX. Please use the most current citation from the following list
 in case you want to refer to our work:
