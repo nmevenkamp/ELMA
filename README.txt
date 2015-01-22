@@ -29,5 +29,5 @@ Please use the most current citation from the following list in case you want to
     for Scanning Transmission Electron Microscopy Images and Poisson Noise based
     on Adaptive Periodic Similarity Search and Patch Regularization, in
     J. Bender, A. Kuijper, T. von Landesberger, H. Theisel, and P. Urban (Eds.),
-    VMV 2014: Vision, Modeling & Visualization, pp. 63–70. Eurographics Association,
-    Darmstadt, Germany (2014).
+    VMV 2014: Vision, Modeling & Visualization, pp. 63–70.
+    Eurographics Association, Darmstadt, Germany (2014).
