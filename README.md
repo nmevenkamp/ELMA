@@ -2,7 +2,7 @@
 
 __Version 1.0__
 
-ELMA is a small tool for **denoising** and analyzing STEM images. The main application are **low-dose high-resolution STEM images** of inorganic materials that are extremely corrupted by **Poisson noise**. Currently, ELMA is focused on periodic crystals, but will be extended to more complex structures in the future.
+ELMA is a small tool for **denoising** and analyzing STEM images. The main application are **low-dose high-resolution STEM images** of inorganic materials that are extremely corrupted by **Poisson noise**. Currently, ELMA is focused on periodic crystals, but we intend to extend it to more complex structures in the future.
 ___
 Executables are available for **Windows** and **MacOSX**.
 
