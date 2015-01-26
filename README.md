@@ -13,7 +13,7 @@ ELMA supports **TIFF images**, as well as the following formats:
 Images must be in units of electron **electron counts / pixel**.
 ___
 **LICENSE**: ELMA is distributed under the terms of [The MIT License](LICENSE.txt).  
-Basically, you can **freely use and modify** this software. You can also redistribute, as long as you include the original copyright and license in their respective sources.
+Basically, you are **free to use and modify** this software. You can also redistribute, as long as you include the original copyright and license in their respective sources.
 ___
 If you want to cite our software, please find below a list of related publications:
 
