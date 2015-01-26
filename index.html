@@ -1,80 +1,87 @@
 <!DOCTYPE html>
 <html>
-
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="Elma : ELectron Micrograph Analysis">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
 
-    <title>Elma</title>
+    <title>Elma by nmevenkamp</title>
   </head>
 
   <body>
+    <header>
+      <div class="inner">
+        <h1>Elma</h1>
+        <h2>ELectron Micrograph Analysis</h2>
+        <a href="https://github.com/nmevenkamp/ELMA" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/nmevenkamp/ELMA">View on GitHub</a>
-
-          <h1 id="project_title">Elma</h1>
-          <h2 id="project_tagline">ELectron Micrograph Analysis</h2>
-
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/nmevenkamp/ELMA/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/nmevenkamp/ELMA/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h3>
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h3>
 <a id="elma---electron-micrograph-analysis" class="anchor" href="#elma---electron-micrograph-analysis" aria-hidden="true"><span class="octicon octicon-link"></span></a>ELMA - ELectron Micrograph Analysis</h3>
 
-<p><em>Version 1.0</em></p>
+<p><strong>Version 1.0</strong></p>
 
-<p>ELMA is a small tool for <strong>denoising</strong> and analyzing High-Resolution STEM images. The main application are <strong>low-dose STEM images</strong> of inorganic materials that are extremely corrupted <strong>Poisson noise</strong>. Currently, ELMA is focused on periodic crystals, but will be extended to more complex structures in the future.</p>
+<p>ELMA is a small tool for <strong>denoising</strong> and analyzing STEM images. The main application are <strong>low-dose high-resolution STEM images</strong> of inorganic materials that are extremely corrupted by <strong>Poisson noise</strong>. Currently, ELMA is focused on periodic crystals, but will be extended to more complex structures in the future.</p>
 
-<p>Executables are available for both <strong>Windows</strong> and <strong>MacOSX</strong>.</p>
+<hr>
 
-<p>ELMA supports the <strong>TIFF image format</strong>, as well as the following:</p>
+<p>Executables are available for <strong>Windows</strong> and <strong>MacOSX</strong>.</p>
+
+<p>ELMA supports <strong>TIFF images</strong>, as well as the following formats:</p>
 
 <ul>
 <li>read: .tiff, .tif, .dm3, .dm4, .png, .q2bz</li>
 <li>save: .tiff, .tif, .png, .q2bz</li>
 </ul>
 
-<p>Note: images must be in units of <strong>electron counts / pixel</strong></p>
+<p>Images must be in units of electron <strong>counts / pixel</strong>.</p>
 
-<p><strong>LICENSE</strong> (in a nutshell):
-You are <strong>free to use</strong> ELMA for scientific or other purposes but we ask you to <strong>cite our work</strong> in case you publish results that involve the use of ELMA.</p>
+<hr>
 
-<p>The complete license can be found in the file LICENSE.txt that is part of this repository and accompanies the executables we distribute for Windows and MacOSX. Please use the most current citation from the following list
-in case you want to refer to our work:</p>
+<p><strong>LICENSE</strong>: ELMA is distributed under the terms of <a href="http://opensource.org/licenses/MIT">The MIT License</a>.<br>
+This means you are <strong>free to use, modify and redistribute</strong> this software without any restrictions, except that you must include or reproduce our copyright notice if you redistribute.</p>
 
-<p><strong>List of references</strong>:</p>
+<hr>
+
+<p>In case you want to cite our software, please find below a list of our related publications:</p>
 
 <p><strong>[1]</strong> N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: <strong>Non-local Means</strong>
     <strong>for Scanning Transmission Electron Microscopy Images and Poisson Noise based</strong>
     <strong>on Adaptive Periodic Similarity Search and Patch Regularization</strong>, in
     J. Bender, A. Kuijper, T. von Landesberger, H. Theisel, and P. Urban (Eds.),
     VMV 2014: Vision, Modeling &amp; Visualization, pp. 63–70.
-    Eurographics Association, Darmstadt, Germany (2014). [ <a href="http://www.aices.rwth-aachen.de:8080/%7Emevenkamp/papers/VMV2014/MeYaVoBe2014.pdf">PDF</a> | <a href="http://dx.doi.org/10.2312/vmv.20141277">DOI</a> ]</p>
-      </section>
+    Eurographics Association, Darmstadt, Germany (2014).</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/nmevenkamp/ELMA/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/nmevenkamp/ELMA/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/nmevenkamp/ELMA"></a> is maintained by <a href="https://github.com/nmevenkamp">nmevenkamp</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
     </div>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">Elma maintained by <a href="https://github.com/nmevenkamp">nmevenkamp</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
+  
   </body>
 </html>
