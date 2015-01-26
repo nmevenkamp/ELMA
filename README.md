@@ -11,7 +11,7 @@ ELMA supports **TIFF images**, as well as the following formats:
 * read: .tiff, .tif, .dm3, .dm4, .png, .q2bz
 * save: .tiff, .tif, .png, .q2bz
 
-Images must be in units of electron **counts / pixel**.
+Images must be in units of **electron counts / pixel**.
 ___
 **LICENSE**: ELMA is distributed under the terms of The MIT License.  
 This means you are **free to use, modify and redistribute** this software without any restrictions, except that you must include or reproduce our copyright notice if you redistribute.
