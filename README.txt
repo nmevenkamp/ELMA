@@ -2,7 +2,7 @@
 
 Version 1.0
 
-ELMA is a small tool for denoising and analyzing High-Resolution STEM images. The main application are low-dose STEM images of inorganic materials that are extremely corrupted Poisson noise. Currently, ELMA is focused on periodic crystals, but will be extended to more complex structures in the future.
+ELMA is a small tool for denoising and analyzing High-Resolution STEM images. The main application are low-dose STEM images of inorganic materials that are extremely corrupted by Poisson noise. Currently, ELMA is focused on periodic crystals, but will be extended to more complex structures in the future.
 
 
 Executables are available for both Windows and MacOSX.
@@ -15,8 +15,8 @@ save: .tiff, .tif, .png, .q2bz
 Note: images must be in units of electron counts / pixel
 
 
-LICENSE: ELMA is distributed under the terms of the MIT License. The complete license can be found in the file LICENSE.txt that is part of this repository and accompanies the executables we distribute for Windows and MacOSX.
-LICENSE (in a nutshell): You are free to use, modify and redistribute this software without any restrictions, except that you must include or reproduce the copyright provided in the LICENSE.txt if you redistribute.
+LICENSE: ELMA is distributed under the terms of The MIT License (see LICENSE.txt).
+This means you are free to use, modify and redistribute this software without any restrictions, except that you must include or reproduce the copyright provided in the LICENSE.txt if you redistribute.
 
 In case you want to cite our software, please refer to the following publication:
 
