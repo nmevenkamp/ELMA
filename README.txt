@@ -15,13 +15,10 @@ save: .tiff, .tif, .png, .q2bz
 Note: images must be in units of electron counts / pixel
 
 
-LICENSE (in a nutshell):
-You are free to use ELMA for scientific or other purposes but we ask you to cite our work in case you publish results that involve the use of ELMA.
+LICENSE: ELMA is distributed under the terms of the MIT License. The complete license can be found in the file LICENSE.txt that is part of this repository and accompanies the executables we distribute for Windows and MacOSX.
+LICENSE (in a nutshell): You are free to use, modify and redistribute this software without any restrictions, except that you must include or reproduce the copyright provided in the LICENSE.txt if you redistribute.
 
-The complete license can be found in the file LICENSE.txt that is part of this repository and accompanies the executables we distribute for Windows and MacOSX. Please use the most current citation from the following list
-in case you want to refer to our work.
-
-List of references:
+In case you want to cite our software, please refer to the following publication:
 
 [1] N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: Non-local Means
     for Scanning Transmission Electron Microscopy Images and Poisson Noise based
