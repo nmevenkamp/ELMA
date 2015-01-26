@@ -18,9 +18,9 @@ This means you are **free to use, modify and redistribute** this software withou
 ___
 If you want to cite our software, please find below a list of related publications:
 
-**[1]** N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: Non-local Means
+**[1]** N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: **Non-local Means
     for Scanning Transmission Electron Microscopy Images and Poisson Noise based
-    on Adaptive Periodic Similarity Search and Patch Regularization, in
+    on Adaptive Periodic Similarity Search and Patch Regularization**, in
     J. Bender, A. Kuijper, T. von Landesberger, H. Theisel, and P. Urban (Eds.),
     VMV 2014: Vision, Modeling & Visualization, pp. 63–70.
     Eurographics Association, Darmstadt, Germany (2014).
