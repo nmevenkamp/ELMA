@@ -7,14 +7,16 @@ ___
 Executables are available for **Windows** and **MacOSX**.
 
 ELMA supports **TIFF images**, as well as the following formats:
-* .tiff, .tif, .dm3 (read only) .dm4 (read only), .png, .q2bz
+* .tif, .tiff, .dm3 (read only) .dm4 (read only), .png, .pgm, .q2bz
 
-Images must be in units of electron **electron counts / pixel**.
+Images must be in units of **electron counts / pixel**.
 ___
-**LICENSE**: ELMA is distributed under the terms of [The MIT License](LICENSE.txt).  
-Basically, you are **free to use** and modify this software. You can also redistribute, as long as you include the original copyright and license in their respective sources.
+**LICENSE**: ELMA is distributed under the terms of the [Common Development and Distribution License](LICENSE.txt).  
+Particularly, you can **download and use** this software **free of cost**.  
+   
+We appreciate any feedback on your experience with ELMA. In case you encounter any problems when using this software, please don't hesitate to contact us: [mevenkamp@aices.rwth-aachen.de](mailto:mevenkamp@aices.rwth-aachen.de)
 ___
-If you want to cite our software, please find below a list of related publications:
+If you publish results generated using ELMA, please refer to our related work:
 
 **[1]** N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: **Non-local Means**
     **for Scanning Transmission Electron Microscopy Images and Poisson Noise based**
