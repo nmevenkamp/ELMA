@@ -7,7 +7,7 @@ ___
 Executables are available for **Windows** and **MacOSX**.
 
 ELMA supports **TIFF images**, as well as the following formats:
-* .tif, .tiff, .dm3 (read only) .dm4 (read only), .png, .pgm, .q2bz
+* .tif, .tiff, .dm3 (read only) .dm4 (read only), .png
 
 Images must be in units of **electron counts / pixel**.
 ___
