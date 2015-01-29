@@ -6,7 +6,7 @@ ELMA is a small tool for **denoising** and analyzing STEM images. The main appli
 ___
 Executables are available for **Windows** and **MacOSX**.
 
-ELMA supports **TIFF** (integer and float) and is **input & output compatible with DigitalMicrograph**. The supported formats are:
+ELMA supports **TIFF** (integer & float) **input/output compatible with DigitalMicrograph**. The list of supported formats is:
 * **.tif**, **.tiff**, **.dm3** (read only) **.dm4** (read only), .png, .pgm, .q2bz
 
 Images must be in units of **electron counts / pixel**.
