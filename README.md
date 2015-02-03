@@ -23,4 +23,4 @@ If you publish results generated using ELMA, please refer to our related work:
     **on Adaptive Periodic Similarity Search and Patch Regularization**, in
     J. Bender, A. Kuijper, T. von Landesberger, H. Theisel, and P. Urban (Eds.),
     VMV 2014: Vision, Modeling & Visualization, pp. 63–70.
-    Eurographics Association, Darmstadt, Germany (2014). [ [PDF](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.pdf) | [DOI](http://dx.doi.org/10.2312/vmv.20141277) ]
+    Eurographics Association, Darmstadt, Germany (2014). [ [PDF](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.pdf) | [DOI](http://dx.doi.org/10.2312/vmv.20141277) [BIB](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.bib) ]
