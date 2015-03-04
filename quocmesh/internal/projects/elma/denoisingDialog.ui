@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DenoisingDialog</class>
+ <widget class="QDialog" name="DenoisingDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>525</width>
+    <height>360</height>
+   </rect>
+  </property>
+  <property name="mouseTracking">
+   <bool>false</bool>
+  </property>
+  <property name="windowTitle">
+   <string>Select denoising filter options</string>
+  </property>
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>320</y>
+     <width>481</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QGroupBox" name="selectFilterGroupBox">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>10</y>
+     <width>482</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Select Filter</string>
+   </property>
+   <widget class="QWidget" name="horizontalLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>9</x>
+      <y>29</y>
+      <width>464</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <layout class="QHBoxLayout" name="selectFilterHorizontalLayout">
+     <item>
+      <widget class="QRadioButton" name="bm3dFilterRadioButton">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gives significantly better results than NLM. Takes a bit longer to compute.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Block-matching and 3D Filtering (BM3D)</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="nlmFilterRadioButton">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Basic non-local filter. A bit faster than BM3D. Image edges will not be denoised.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Non-local Means (NLM)</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QFrame" name="emNHFilterOptionsFrame">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>90</y>
+     <width>481</width>
+     <height>141</height>
+    </rect>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::StyledPanel</enum>
+   </property>
+   <property name="frameShadow">
+    <enum>QFrame::Raised</enum>
+   </property>
+   <widget class="QWidget" name="formLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>461</width>
+      <height>116</height>
+     </rect>
+    </property>
+    <layout class="QFormLayout" name="emNHFilterOptionsFormLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="blockSizeLabel">
+       <property name="mouseTracking">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Higher block sizes give better results, but take longer to compute. Blocks should be roughly 0.25-1.25 times as big as single atoms within the image.&lt;/p&gt;&lt;ol&gt;&lt;li&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;BM3D&lt;/span&gt;: block size must be power of two (4, 8, 16, 32 are allowed)&lt;/p&gt;&lt;\li&gt;&lt;li&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;NLM&lt;/span&gt;: block size must be odd (3, 5, .. , 29, 31 are allowed)&lt;/p&gt;&lt;\li&gt;&lt;/ol&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Block size:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="BlockSizeSpinBox" name="blockSizeSpinBox">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase for higher quality results (computation will take longer though).&lt;/p&gt;&lt;p&gt;Must be a power of 2 for BM3D, i.e. 8, 16, 32, etc.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="accessibleDescription">
+        <string/>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectToPreviousValue</enum>
+       </property>
+       <property name="minimum">
+        <number>4</number>
+       </property>
+       <property name="maximum">
+        <number>32</number>
+       </property>
+       <property name="value">
+        <number>16</number>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="poissonNoiseAdaptationLabel">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ol style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Anscombe&lt;/span&gt;: fastest, slightly inaccurate when average detected electrons / pixel &amp;lt; 4&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Maximum-likelihood ratios&lt;/span&gt;: slower but valid for any Poisson noise&lt;/li&gt;&lt;/ol&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Poisson noise adaptation:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QComboBox" name="poissonNoiseAdaptationComboBox"/>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="similaritySearchMethodLabel">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ol style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Local&lt;/span&gt;: worst results, fastest &lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Global&lt;/span&gt;: good results, by far the slowest&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Periodic &lt;/span&gt;(&lt;span style=&quot; text-decoration: underline;&quot;&gt;recommended&lt;/span&gt;): best results for periodic crystals or single dislocations, nearly as fast as &lt;span style=&quot; font-weight:600;&quot;&gt;Local&lt;/span&gt;&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Uniform periodic&lt;/span&gt; (BM3D only): best results for extreme noise (max. detected electrons/pixel &amp;lt; 8) and periodic crystals or single dislocations, slightly slower than &lt;span style=&quot; font-weight:600;&quot;&gt;Periodic&lt;/span&gt;&lt;/li&gt;&lt;/ol&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Similarity search method:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QComboBox" name="similaritySearchMethodComboBox"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="scanDistortionCorrectionMethodLabel">
+       <property name="text">
+        <string>Scan distortion correction method:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QComboBox" name="scanDistortionCorrectionMethodComboBox"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QStackedWidget" name="additionalFilterOptionsStackedWidget">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>19</x>
+     <y>250</y>
+     <width>481</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::StyledPanel</enum>
+   </property>
+   <property name="currentIndex">
+    <number>0</number>
+   </property>
+   <widget class="QWidget" name="emBM3DFilterOptionsPage">
+    <widget class="QWidget" name="formLayoutWidget_2">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>461</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <layout class="QFormLayout" name="emBM3DFilterOptionsFormLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="profileLabel">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ol style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Normal&lt;/span&gt; (&lt;span style=&quot; text-decoration: underline;&quot;&gt;recommended&lt;/span&gt;): very good results, moderate computation time&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Low complexity&lt;/span&gt;: poor results, very fast&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;High quality&lt;/span&gt;: might be better than &lt;span style=&quot; font-weight:600;&quot;&gt;Normal&lt;/span&gt;, but is also slower&lt;/li&gt;&lt;/ol&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Profile:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="profileComboBox"/>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="emNLMFilterOptionsPage">
+    <widget class="QWidget" name="formLayoutWidget_3">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>461</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <layout class="QFormLayout" name="emNLMFilterOptionsFormLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="filterParameterLabel">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust to noise power (choosing higher values for stronger denoising). Too high values result in blurred images.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Filter parameter:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QDoubleSpinBox" name="filterParameterDoubleSpinBox">
+        <property name="buttonSymbols">
+         <enum>QAbstractSpinBox::NoButtons</enum>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QPushButton" name="helpButton">
+   <property name="geometry">
+    <rect>
+     <x>240</x>
+     <y>320</y>
+     <width>90</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="toolTip">
+    <string/>
+   </property>
+   <property name="text">
+    <string>Help</string>
+   </property>
+   <property name="flat">
+    <bool>false</bool>
+   </property>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>BlockSizeSpinBox</class>
+   <extends>QSpinBox</extends>
+   <header>blocksizespinbox.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="icons.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>DenoisingDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>DenoisingDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

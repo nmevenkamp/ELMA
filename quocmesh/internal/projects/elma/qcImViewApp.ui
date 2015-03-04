@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QuocImageViewer</class>
+ <widget class="QMainWindow" name="QuocImageViewer">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="mouseTracking">
+   <bool>true</bool>
+  </property>
+  <property name="windowTitle">
+   <string>Quoc Image Viewer</string>
+  </property>
+  <widget class="QScrollArea" name="scrollArea">
+   <property name="mouseTracking">
+    <bool>true</bool>
+   </property>
+   <widget class="AspectRatioPixmapLabel" name="imageLabel">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>6</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="mouseTracking">
+     <bool>true</bool>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="scaledContents">
+     <bool>false</bool>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>400</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionLoad"/>
+    <addaction name="actionReload"/>
+    <addaction name="actionSaveAs"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionNextFile"/>
+    <addaction name="actionPrevFile"/>
+    <addaction name="actionShowInfo"/>
+    <addaction name="actionPlotHistogram"/>
+    <addaction name="actionPlotCrossSection"/>
+    <addaction name="actionFitToWindow"/>
+    <addaction name="actionZoomIn"/>
+    <addaction name="actionZoomOut"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>About</string>
+    </property>
+    <addaction name="actionAboutQt"/>
+   </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <widget class="QMenu" name="menuRGBToGray">
+     <property name="title">
+      <string>RGB to Gray</string>
+     </property>
+     <addaction name="actionRGBToGrayLuminance"/>
+     <addaction name="actionRGBToGrayAverage"/>
+     <addaction name="actionRGBToGrayLightness"/>
+    </widget>
+    <addaction name="actionEnhanceContrast"/>
+    <addaction name="actionAutoContrast"/>
+    <addaction name="actionGrayValuesToHSV"/>
+    <addaction name="menuRGBToGray"/>
+    <addaction name="actionCrop"/>
+    <addaction name="actionFourierPowerSpectrum"/>
+    <addaction name="actionLogScale"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuView"/>
+   <addaction name="menuTools"/>
+   <addaction name="menuAbout"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <action name="actionLoad">
+   <property name="text">
+    <string>Load...</string>
+   </property>
+   <property name="iconText">
+    <string>Load...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load 2D Quoc Array</string>
+   </property>
+   <property name="shortcut">
+    <string>L</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionNextFile">
+   <property name="text">
+    <string>Next File</string>
+   </property>
+   <property name="shortcut">
+    <string>PgDown</string>
+   </property>
+  </action>
+  <action name="actionPrevFile">
+   <property name="text">
+    <string>Prev File</string>
+   </property>
+   <property name="shortcut">
+    <string>PgUp</string>
+   </property>
+  </action>
+  <action name="actionShowInfo">
+   <property name="text">
+    <string>Data Info</string>
+   </property>
+   <property name="shortcut">
+    <string>I</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionEnhanceContrast">
+   <property name="text">
+    <string>Enhance Contrast</string>
+   </property>
+   <property name="whatsThis">
+    <string/>
+   </property>
+   <property name="shortcut">
+    <string>C</string>
+   </property>
+  </action>
+  <action name="actionPlotHistogram">
+   <property name="text">
+    <string>Histogram</string>
+   </property>
+   <property name="shortcut">
+    <string>H</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAboutQt">
+   <property name="text">
+    <string>About Qt</string>
+   </property>
+  </action>
+  <action name="actionFitToWindow">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Fit to window</string>
+   </property>
+  </action>
+  <action name="actionIncrease_Zoom">
+   <property name="text">
+    <string>Increase Zoom</string>
+   </property>
+  </action>
+  <action name="actionZoomIn">
+   <property name="text">
+    <string>Zoom In</string>
+   </property>
+   <property name="shortcut">
+    <string>+</string>
+   </property>
+  </action>
+  <action name="actionZoomOut">
+   <property name="text">
+    <string>Zoom Out</string>
+   </property>
+   <property name="shortcut">
+    <string>-</string>
+   </property>
+  </action>
+  <action name="actionGrayValuesToHSV">
+   <property name="text">
+    <string>Gray to HSV Colormap</string>
+   </property>
+   <property name="toolTip">
+    <string>Convert gray values to HSV Color Map</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAutoContrast">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Auto Contrast</string>
+   </property>
+  </action>
+  <action name="actionPlotCrossSection">
+   <property name="text">
+    <string>Plot Cross Section</string>
+   </property>
+   <property name="toolTip">
+    <string>Show 1D plot of cross section of selected frame diagonal with image</string>
+   </property>
+   <property name="shortcut">
+    <string>P</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionCrop">
+   <property name="text">
+    <string>Crop</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionReload">
+   <property name="text">
+    <string>Reload</string>
+   </property>
+   <property name="shortcut">
+    <string>R</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSaveAs">
+   <property name="text">
+    <string>Save as...</string>
+   </property>
+   <property name="iconText">
+    <string>Save as...</string>
+   </property>
+   <property name="toolTip">
+    <string>Save as...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRGBToGrayLuminance">
+   <property name="text">
+    <string>Luminance</string>
+   </property>
+   <property name="toolTip">
+    <string>Converts RGB values to perceived luminance: Gray=0.21R+0.72G+0.07B</string>
+   </property>
+   <property name="statusTip">
+    <string/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRGBToGrayAverage">
+   <property name="text">
+    <string>Average</string>
+   </property>
+   <property name="toolTip">
+    <string>Converts RGB values to average: Gray=(R+G+B)/3</string>
+   </property>
+   <property name="statusTip">
+    <string/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRGBToGrayLightness">
+   <property name="text">
+    <string>Lightness</string>
+   </property>
+   <property name="toolTip">
+    <string>Converts RGB values to HSL lightness: Gray=(min(R,G,B)+max(R,G,B))/2</string>
+   </property>
+   <property name="statusTip">
+    <string/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionFourierPowerSpectrum">
+   <property name="text">
+    <string>Fourier power spectrum</string>
+   </property>
+  </action>
+  <action name="actionLogScale">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Log Scale</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>AspectRatioPixmapLabel</class>
+   <extends>QLabel</extends>
+   <header>aspectratiopixmaplabel.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>actionExit</sender>
+   <signal>triggered()</signal>
+   <receiver>QuocImageViewer</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>199</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

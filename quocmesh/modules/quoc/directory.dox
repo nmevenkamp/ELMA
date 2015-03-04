@@ -1,0 +1,8 @@
+/** \namespace qc
+ *  \brief Numerics on Quad/oC-tree grids.
+ *  See Module Documentation \ref quocdoc.
+ */
+
+//! @dir
+//! @brief Numerics on Quad/oC-tree grids.
+//! See Module Documentation @ref quocdoc.

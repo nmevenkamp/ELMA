@@ -1,0 +1,8 @@
+/** \namespace aol 
+ *  \brief Abstract Operator Library.
+ *  See Module Documentation \ref aoldoc.
+ */
+
+//! @dir
+//! @brief Abstract Operator Library.
+//! See Module Documentation @ref aoldoc.

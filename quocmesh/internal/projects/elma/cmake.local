@@ -1,0 +1,117 @@
+# Read version from README.md
+FILE ( READ ${CMAKE_SOURCE_DIR}/internal/projects/elma/README.md CONTENTS )
+STRING ( REGEX REPLACE ".*__Version ([^__]*)__.*" "\\1" CONTENTS ${CONTENTS} )
+SET ( VERSION ${CONTENTS} )
+
+IF ( ELMA_DEPLOY )
+  ADD_DEFINITIONS ( -DELMA_DEPLOY )
+ENDIF ( )
+
+IF ( WIN32 )
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES WIN32_EXECUTABLE TRUE )
+
+  # Copy Qt dlls to executable path
+  IF ( USE_QT5 )
+    SET ( Qt5_BIN_DIR ${Qt5_DIR}/../../../bin )
+
+	# List of all required DLLs
+	FILE ( GLOB Qt5_DLLS_REQUIRED
+-     ${Qt5_BIN_DIR}/icudt5*.dll
+-     ${Qt5_BIN_DIR}/icuin5*.dll
+-	  ${Qt5_BIN_DIR}/icuuc5*.dll
+-	  ${Qt5_BIN_DIR}/libEGL*.dll
+-	  ${Qt5_BIN_DIR}/libGLESv2*.dll
+-	  ${Qt5_BIN_DIR}/Qt5Core*.dll
+-	  ${Qt5_BIN_DIR}/Qt5Gui*.dll
+-	  ${Qt5_BIN_DIR}/Qt5Widgets*.dll
+-   )
+    # Remove debug versions
+	FILE ( GLOB Qt5_DLLS_DEBUG ${Qt5_BIN_DIR}/*d.dll )
+	LIST ( REMOVE_ITEM Qt5_DLLS_REQUIRED ${Qt5_DLLS_DEBUG} )
+  ENDIF ( )
+  FOREACH ( Qt5_DLL ${Qt5_DLLS_REQUIRED} )
+    FILE ( COPY ${Qt5_DLL} DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
+  ENDFOREACH ( )
+  FILE ( COPY ${Qt5_DIR}/../../../plugins/platforms/qwindows.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/platforms )
+
+  # If building with VC++ copy Microsoft Visual C++ Redistributable dlls to executable path
+  IF ( MSVC AND ${MSVC_VERSION} EQUAL 1800 )
+    FILE ( COPY C:/Windows/System32/msvcp120.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
+	FILE ( COPY C:/Windows/System32/msvcr120.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
+  ENDIF ( )
+ENDIF()
+
+IF ( APPLE )
+  # Tell cmake to create an app instead of a normal executable.
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE TRUE )
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "ELectron Micrograph Analysis" )
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_INFO_STRING "ELectron Micrograph Analysis - Version ${VERSION}" ) 
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_BUNDLE_VERSION ${QUOCMESH_VERSION} ) 
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "de.rwth-aachen.aices.elma" ) 
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_COPYRIGHT "Copyright (c) 2015 Niklas Mevenkamp and Benjamin Berkels" )
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${VERSION} )
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_LONG_VERSION_STRING "Version ${VERSION}" )
+  # Set the icon ...
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_ICON_FILE elma.icns )
+  # ... and copy it into the bundle.
+  FILE ( COPY elma.icns DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/elma.app/Contents/Resources/ )
+
+  # Unfortunately, cmake doesn't allow custom plist entries, but OS X requires certain entries 
+  # cmake's plist template  lacks in order to make the app work properly. For instance, the
+  # NSPrincipalClass entry is necessary to register the app as default handler for a file
+  # extension. Thus, we supply a custom template here that is just an extended version of the
+  # cmake template.
+  SET_TARGET_PROPERTIES ( internal_projects_elma_ELMA PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/MacOSXBundleInfo.plist.in )
+
+  # This should install all necessary dependencies in the .app directory,
+  # so that the app hopefully can be copied to another machine.
+  SET ( APPS ${CMAKE_CURRENT_BINARY_DIR}/elma.app/Contents/MacOS/elma ) 
+  SET ( DIRS ${CMAKE_BINARY_DIR} )
+  INSTALL ( CODE "
+     include(BundleUtilities)
+     fixup_bundle(\"${APPS}\"   \"\"   \"${DIRS}\")
+     " COMPONENT Runtime )
+ENDIF()
+
+# Process README.md and convert to README.txt
+FILE ( READ ${CMAKE_SOURCE_DIR}/internal/projects/elma/README.md CONTENTS )
+STRING ( REPLACE "___" "" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "__" "" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\\*\\*([^\\*]*)\\*\\*" "\\1" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\\[ \\[PDF\\].*\\[DOI\\].*\\]" "" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "()" "" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\\[([^\\[]*)\\]\\(LICENSE.txt\\)" "\\1 (see LICENSE.txt)" CONTENTS ${CONTENTS} ) 
+STRING ( REGEX REPLACE "\\[([^\\[]*)\\]\\(([^\\)]*)\\)" "\\1" CONTENTS ${CONTENTS} )
+FILE ( WRITE ${CMAKE_SOURCE_DIR}/internal/projects/elma/README.txt ${CONTENTS} )
+
+# Process README.md and produce elmaReadme.h that provides a getELMAReadme ( ) function
+FILE ( READ ${CMAKE_SOURCE_DIR}/internal/projects/elma/README.md CONTENTS )
+STRING ( REGEX REPLACE "### ([^\r\n]*)[\r\n|\n|\r]" "<font size='4'><b>\\1</b><br><br></font><font size='2'>" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "___" "<hr>" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "__([^_]*)__" "<it>\\1</it>" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\\*\\*([^\\*]*)\\*\\*" "<b>\\1</b>" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\\* ([^\r\n]*)[\r\n|\n|\r]" "<li>\\1</li>" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "LICENSE.txt" "http://opensource.org/licenses/CDDL-1.0" CONTENTS ${CONTENTS} ) 
+STRING ( REGEX REPLACE "\\[([^\\[]*)\\]\\(([^\\)]*)\\)" "<a href='\\2'>\\1</a>" CONTENTS ${CONTENTS} )
+STRING ( REGEX REPLACE "\r\n|\n|\r" "<br>" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "<br><li>" "<ul><li>" CONTENTS ${CONTENTS} )
+STRING ( REPLACE "</li><br>" "</li></ul>" CONTENTS ${CONTENTS} )
+STRING ( CONCAT CONTENTS "#ifndef __ELMAREADME_H\n#define __ELMAREADME_H\nstatic const std::string getELMAReadme ( ) {\n  return \"" ${CONTENTS} "</font>\"\;\n}\n#endif // __ELMAREADME_H" )
+FILE ( WRITE ${CMAKE_SOURCE_DIR}/internal/projects/elma/elmaReadme.h ${CONTENTS} )
+
+
+SET ( QUOCIMVIEWDIR ${CMAKE_SOURCE_DIR}/examples/qt )
+FILE ( GLOB QUOCIMVIEW_SRCS ${QUOCIMVIEWDIR}/*.cpp )
+FILE ( GLOB QUOCIMVIEW_HDRS ${QUOCIMVIEWDIR}/*.h )
+FILE ( GLOB QUOCIMVIEW_MOC_HDRS ${QUOCIMVIEWDIR}/*.hpp )
+FOREACH ( FILE ${QUOCIMVIEW_SRCS} ${QUOCIMVIEW_HDRS} ${QUOCIMVIEW_MOC_HDRS} )
+  STRING ( REGEX MATCH "\n[ \t]*(void|int)[ \t]+main[ \t]*[\(]" MAIN_STRING ${SOURCEFILE})
+  IF ( NOT MAIN_STRING )
+  	GET_FILENAME_COMPONENT ( FILENAME FILE NAME )
+    IF ( XCODE )
+      EXECUTE_PROCESS ( COMMAND ${CMAKE_COMMAND} -E create_symlink ${FILE} ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME} )
+    ELSE ( )
+      FILE ( COPY ${FILE} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME} )
+    ENDIF ( )
+  ENDIF ( NOT MAIN_STRING )
+ENDFOREACH ( )
