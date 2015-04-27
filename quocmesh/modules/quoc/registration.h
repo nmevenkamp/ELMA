@@ -879,6 +879,7 @@ public:
   typedef typename ConfiguratorType::ArrayType ArrayType;
   typedef _RegularizationConfiguratorType RegularizationConfiguratorType;
   typedef typename RegistrationConfiguratorType::ImageDOFType ImageDOFType;
+  static const bool IsParametric = false;
 
   const bool _disableSaving;
   RealType _energyOfLastSolution;

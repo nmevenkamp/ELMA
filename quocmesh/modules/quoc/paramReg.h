@@ -823,6 +823,7 @@ public:
   typedef _ConfiguratorType ConfiguratorType;
   typedef typename ConfiguratorType::RealType RealType;
   typedef aol::MultiVector<RealType> TransformationDOFType;
+  static const bool IsParametric = true;
 
 protected:
   aol::MultiVector<RealType> _deformParameters;
@@ -912,6 +913,10 @@ public:
 
   void loadTransformationTo ( const char *DefBaseName, aol::MultiVector<RealType> &DeformParameters ) const {
     DeformParameters.load ( aol::strprintf ( "%s%s", DefBaseName, getDeformationFileNameSuffix().c_str() ).c_str() );
+  }
+
+  int getMaxGradientSteps ( ) const {
+    return _maxGradientDescentSteps;
   }
 
   void setMaxGradientSteps ( int maxGradientDescentSteps ) {

@@ -181,10 +181,13 @@ protected:
   BlockDistanceFunctionType _setBlockDistance;                            // Pointer to currently used block distance function
   
   // Internal variables used for Anscombe transformation
-  const RealType _scaleRange = 0.7, _scaleShift = 0.5 * ( 1.0 - _scaleRange ), _minTransformed = 2 * sqrt( 0.0 + 3.0 / 8.0 );
+  const RealType _scaleRange, _scaleShift, _minTransformed;
   RealType _maxTransformed;
 public:
-  NeighborhoodFilter ( ) : _catchCtrlC ( false ), _searchIt ( NULL ) { }
+  NeighborhoodFilter ( ) : _catchCtrlC ( false ), _searchIt ( NULL ),
+    _scaleRange ( 0.7 ),
+    _scaleShift ( 0.5 * ( 1.0 - _scaleRange ) ),
+    _minTransformed ( 2 * sqrt( 0.0 + 3.0 / 8.0 ) ) { }
   
   void setCatchCtrlC ( bool catchCtrlC ) {
     _catchCtrlC = catchCtrlC;
@@ -270,7 +273,7 @@ protected:
     _stdDev = 1.0 / ( _maxTransformed - _minTransformed ) * _scaleRange;
   }
   
-  void scaleBackAndApplyAnscombeInverse ( const OptionsType &Options ) {
+  void scaleBackAndApplyAnscombeInverse ( const OptionsType &/*Options*/ ) {
     for ( int k=0; k<_estimate.size ( ) ; ++k ) {
       _estimate[k] = ( _estimate[k] - _scaleShift ) / _scaleRange;
       _estimate[k] = _estimate[k] * ( _maxTransformed - _minTransformed ) + _minTransformed;

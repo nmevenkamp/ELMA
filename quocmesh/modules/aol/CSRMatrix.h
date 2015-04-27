@@ -17,7 +17,7 @@ template <typename BaseClass = aol::GenSparseOp<double>, typename DataType = dou
 class CSR_Matrix : public aol::CSRMatrix<DataType, IndexType> {
 public:
 protected:
-  CSR_Matrix( ) : aol::CSRMatrix<DataType, IndexType> ( 0, 0 ) {}
+  CSR_Matrix( ) : aol::CSRMatrix<DataType, IndexType> () {}
 
   using aol::CSRMatrix<DataType, IndexType>::_numRows;
   using aol::CSRMatrix<DataType, IndexType>::_numCols;

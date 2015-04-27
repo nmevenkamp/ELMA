@@ -13,6 +13,7 @@
 #endif
 
 static const double INV_SQRT_2 = 1 / sqrt ( 2 );
+static const double INV_SQRT_PI = 1 / sqrt ( aol::NumberTrait<double>::pi );
 template <typename _RealType>
 class NormalDistribution {
   typedef _RealType RealType;
@@ -26,7 +27,7 @@ public:
   
   static RealType PDF ( const RealType X, const RealType Mean = 0, const RealType Variance = 1 ) {
     const RealType inv_sigma_sqrt_2 = 1 / sqrt ( Variance ) * INV_SQRT_2;
-    return inv_sigma_sqrt_2 * exp ( -pow ( ( X - Mean ) * inv_sigma_sqrt_2 , 2 ) );
+    return INV_SQRT_PI * inv_sigma_sqrt_2 * exp ( -pow ( ( X - Mean ) * inv_sigma_sqrt_2 , 2 ) );
   }
   
   static RealType CDF ( const RealType Z, const RealType Mean = 0, const RealType Variance = 1 ) {

@@ -165,6 +165,31 @@ void makeDirectory ( const char *DirectoryName ) {
 #endif
 }
 
+  void recursivelyMakeDirectory ( const char *DirectoryName, bool verbose ) {
+#if defined(_WIN32) && !defined(__MINGW32_VERSION) && !defined(__CYGWIN__)
+  throw aol::Exception ( "Not implemented for Windows", __FILE__, __LINE__, __FUNCTION__ );
+#else
+  struct stat directory;
+  const int statReturn = stat ( DirectoryName, &directory );
+
+  if ( ( statReturn == - 1 ) || !S_ISDIR ( directory.st_mode ) ) {
+#if defined(__MINGW32_VERSION) || defined(__MINGW64__)
+  throw aol::Exception ( "Not implemented for mingw", __FILE__, __LINE__, __FUNCTION__ );
+#else
+    string systemCommand = "mkdir -p \"";
+    systemCommand += DirectoryName;
+    systemCommand += "\"";
+    if ( system ( systemCommand.c_str() ) != EXIT_SUCCESS )
+      cerr << "aol::makeDirectory: Calling mkdir returned an error.\n";
+#endif
+    if ( verbose )
+      cerr << "Created directory " << DirectoryName << endl;
+  } else {
+    cerr << "Directory " << DirectoryName << " already exists\n";
+  }
+#endif
+}
+
 void generateTemporaryFile ( char *TempFileName, ofstream &TempFileStream ) {
 #if defined(_MSC_VER)
   // based on http://msdn2.microsoft.com/en-us/library/aa363875.aspx

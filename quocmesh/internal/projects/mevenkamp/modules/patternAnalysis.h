@@ -13,9 +13,104 @@
 #include <configurators.h>
 #include <generator.h>
 #include "nonLinearRegression.h"
-#include "linearRegression.h"
 #include <cellCenteredGrid.h>
 #include <linearSmoothOp.h>
+#include <clustering.h>
+
+
+template<typename _RealType, typename _PictureType>
+int getNumNonNaNs ( const _PictureType &Data ) {
+  int res = 0;
+  for ( int i=0; i<Data.size ( ); ++i ) {
+    if ( !aol::isNaN<_RealType> ( Data[i] ) ) ++res;
+  }
+  return res;
+}
+
+
+template <typename _RealType, typename _PictureType>
+class PeriodicityTargetFunctional : public aol::Op<aol::Vector<_RealType> > {
+  typedef _RealType RealType;
+  typedef _PictureType PictureType;
+protected:
+  const PictureType &_data;
+  const int _numNonNaNs;
+public:
+  PeriodicityTargetFunctional ( const PictureType &Data )
+  : _data ( Data ), _numNonNaNs ( getNumNonNaNs<RealType, PictureType> ( Data ) ) { }
+  
+  void applyAdd ( const aol::Vector<RealType> &Arg, aol::Vector<RealType> &Dest ) const {
+    if ( Arg.size ( ) != 4 )
+      throw aol::Exception ( "Arguments size must be equal to 4!", __FILE__, __LINE__ );
+    
+    if ( Dest.size ( ) != 2 * _numNonNaNs )
+      throw aol::Exception ( "Destination vector does not match 2 * #non-NaNs!", __FILE__, __LINE__ );
+    
+    aol::Vec2<RealType> xpv;
+    int i = 0;
+    for ( int y=0; y<_data.getNumY ( ) ; ++y ) {
+      for ( int x=0; x<_data.getNumX ( ) ; ++x ) {
+        if ( !aol::isNaN<RealType> ( _data.get ( x, y ) ) ) {
+          for ( int j=0; j<2 ; ++j ) {
+            xpv.set ( x + Arg[2*j], y + Arg[2*j+1] );
+            if ( xpv[0] >= 0 && xpv[0] < _data.getNumX ( ) && xpv[1] >= 0 && xpv[1] < _data.getNumY ( ) && !aol::isNaN<RealType> ( _data.get ( xpv[0], xpv[1] ) ) )
+              Dest[i] += _data.get ( x, y ) - _data.interpolate ( xpv );
+            ++i;
+          }
+        }
+      }
+    }
+  }
+};
+
+template <typename _RealType, typename _MatrixType, typename _PictureType>
+class PeriodicityTargetJacobian : public aol::Op<aol::Vector<_RealType>, _MatrixType> {
+  typedef _RealType RealType;
+  typedef _PictureType PictureType;
+protected:
+  const PictureType &_data;
+  const int _numNonNaNs;
+public:
+  PeriodicityTargetJacobian ( const PictureType &Data )
+    : _data ( Data ), _numNonNaNs ( getNumNonNaNs<RealType, PictureType> ( Data ) ) { }
+  
+  void applyAdd ( const aol::Vector<RealType> &/*Arg*/, aol::FullMatrix<RealType> &/*Dest*/ ) const {
+    throw aol::UnimplementedCodeException( "Not implemented", __FILE__, __LINE__ );
+  }
+  
+  void apply ( const aol::Vector<RealType> &Arg, aol::FullMatrix<RealType> &Dest ) const {
+    if ( Arg.size ( ) != 4 )
+      throw aol::Exception ( "Arguments size must be equal to 4!", __FILE__, __LINE__ );
+    
+    if ( Dest.getNumRows ( ) != 2 * _numNonNaNs || Dest.getNumCols ( ) != 4 )
+      throw aol::Exception ( "Destination dimensions do not fit 2 * $non-NaNs and parameters!", __FILE__, __LINE__ );
+    
+    Dest.setAll ( 0.0 );
+    aol::Vec2<RealType> xpv;
+    int i = 0;
+    for ( int y=0; y<_data.getNumY ( ) ; ++y ) {
+      for ( int x=0; x<_data.getNumX ( ) ; ++x ) {
+        if ( !aol::isNaN<RealType> ( _data.get ( x, y ) ) ) {
+          for ( int j=0; j<2 ; ++j ) {
+            xpv.set ( x + Arg[2*j], y + Arg[2*j+1] );
+            if ( xpv[0] >= 0 && xpv[0] < _data.getNumX ( ) && xpv[1] >= 0 && xpv[1] < _data.getNumY ( ) && !aol::isNaN<RealType> ( _data.get ( xpv[0], xpv[1] ) ) ) {
+              Dest.set ( i, 2*j, -_data.dxFD ( xpv[0], xpv[1] ) );
+              Dest.set ( i, 2*j+1, -_data.dyFD ( xpv[0], xpv[1] ) );
+            }
+            ++i;
+          }
+        }
+      }
+    }
+  }
+};
+
+
+enum PatternAnalysisAlgorithmType {
+  FourierPeaksAndSineFit,
+  ProjectiveStdDevAndPeriodicityEnergyMinimization,
+  PeriodicityFunctionalMinimization
+};
 
 
 template <typename _RealType, typename _PictureType>
@@ -25,79 +120,431 @@ class PatternAnalyzer {
   typedef qc::MultiArray<RealType, qc::QC_2D, 3> ColoredPictureType;
   typedef qc::RectangularGridConfigurator<RealType, qc::QC_1D, aol::GaussQuadrature<RealType,qc::QC_1D,3> > ConfType;
 protected:
-  const PictureType &_data;
-  const aol::Vec2<RealType> _center;
   const std::string &_outputDir;
   const bool _verbose;
   aol::ProgressBar<> *_progressBar;
   mutable sigfunc _previousCtrlCHandler;
-  const qc::FastILexMapper<qc::QC_2D> _mapper;
-  PictureType _fourierPowerCoefficients, _fourierPowerPeaks;
-  aol::RandomAccessContainer<aol::Vec2<RealType> > _peaks;
-  aol::Vector<RealType> _periodicityAnglesRadians, _periodicityAnglesDegrees, _periodicitySpacingsPixels;
 public:
-  PatternAnalyzer ( const PictureType &Data, const std::string &OutputDir = "", const bool Verbose = false,
+  PatternAnalyzer ( const std::string &OutputDir = "", const bool Verbose = false,
                     aol::ProgressBar<> *ProgressBar = NULL )
-    : _data ( Data ), _center ( Data.getNumX ( ) / 2, Data.getNumY ( ) / 2 ), _outputDir ( OutputDir ), _verbose ( Verbose ),
-      _progressBar ( ProgressBar ),
-      _mapper ( Data.getNumX ( ), Data.getNumY ( ) ),
-      _fourierPowerCoefficients ( Data.getNumX ( ), Data.getNumY ( ) ), _fourierPowerPeaks ( Data.getNumX ( ), Data.getNumY ( ) ),
-      _peaks ( ), _periodicityAnglesRadians ( ), _periodicityAnglesDegrees ( ), _periodicitySpacingsPixels ( )
-  {
+    : _outputDir ( OutputDir ), _verbose ( Verbose ), _progressBar ( ProgressBar ) { }
+  
+  void getLatticeVectors ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data,
+                           const PatternAnalysisAlgorithmType &AlgorithmType = FourierPeaksAndSineFit,
+                           const aol::Vector<RealType> &Params = aol::Vector<RealType> ( ) ) {
+    LatticeVectors.resize ( 2, 2 );
+    if ( AlgorithmType == FourierPeaksAndSineFit ) getLatticeVectorsByFourierPeakExtractionAndSineFit ( LatticeVectors, Data );
+    else if ( AlgorithmType == ProjectiveStdDevAndPeriodicityEnergyMinimization ) getLatticeVectorsByProjectiveStdDevAndPeriodicityEnergyMinimization ( LatticeVectors, Data, Params );
+    else if ( AlgorithmType == PeriodicityFunctionalMinimization ) getLatticeVectorsByPeriodicityFunctionalMinimization ( LatticeVectors, Data, Params );
+    else throw aol::Exception ( "Could not recognize specified pattern analysis algorithm type!" );
+  }
+  
+  void getLatticeAnglesAndPeriods ( aol::Vec2<RealType> &LatticeAngles, aol::Vec2<RealType> &LatticePeriods, const PictureType &Data,
+                                    const PatternAnalysisAlgorithmType &AlgorithmType = FourierPeaksAndSineFit,
+                                    const aol::Vector<RealType> &Params = aol::Vector<RealType> ( ) ) {
+    aol::MultiVector<RealType> latticeVectors;
+    getLatticeVectors ( latticeVectors, Data, AlgorithmType, Params );
+    for ( int i=0; i<2 ; ++i ) {
+      LatticeAngles[i] = atan ( latticeVectors[i][1] / latticeVectors[i][0] );
+      LatticePeriods[i] = latticeVectors[i].norm ( );
+    }
+  }
+  
+  void refineLatticeVectorsByPeriodicityFunctionalMinimization ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data ) {
+    PeriodicityTargetFunctional<RealType, PictureType> F ( Data );
+    PeriodicityTargetJacobian<RealType, aol::FullMatrix<RealType>, PictureType> DF ( Data );
+    LevenbergMarquardtAlgorithm<RealType, aol::FullMatrix<RealType>, LinearRegressionQR<RealType> > levenbergMarquardtAlg ( 2 * getNumNonNaNs<RealType, PictureType> ( Data ),
+                                                                                                                           F, DF, 50, 1, 0.2, 0.8, 1e-6, 1e-6, 1e-6, true );
+    aol::Vector<RealType> arg ( 4 ), dest ( 4 );
+    for ( int i=0; i<2 ; ++i ) {
+      arg[2*i] = LatticeVectors[i][0];
+      arg[2*i+1] = LatticeVectors[i][1];
+    }
+    levenbergMarquardtAlg.apply ( arg, dest );
+    for ( int i=0; i<2 ; ++i ) {
+      LatticeVectors[i][0] = dest[2*i];
+      LatticeVectors[i][1] = dest[2*i+1];
+    }
+    
+    // Create some output for debugging/analysis (if requested)
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/refined_periodicityAxes.png";
+      aol::Vec2<RealType> latticeAngles;
+      for ( int i=0; i<2 ; ++i ) latticeAngles[i] = atan ( LatticeVectors[i][1] / LatticeVectors[i][0] );
+      saveDataPeriodicityAxesImg ( ss.str ( ).c_str ( ), Data, latticeAngles );
+      
+      ss.str ( std::string ( ) ); // clear stringstream
+      ss << _outputDir << "/refined_periodicityPattern.png";
+      saveDataPeriodicPatternImg ( ss.str ( ).c_str ( ), Data, LatticeVectors );
+    }
+  }
+  
+protected:
+  void getLatticeVectorsByPeriodicityFunctionalMinimization ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data, const aol::Vector<RealType> &Params ) {
+    getLatticeVectorsByProjectiveStdDevAndPeriodicityEnergyMinimization ( LatticeVectors, Data, Params );
+    refineLatticeVectorsByPeriodicityFunctionalMinimization ( LatticeVectors, Data );
+  }
+  
+  
+  void getLatticeVectorsByProjectiveStdDevAndPeriodicityEnergyMinimization ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data, aol::Vec2<int> NumClusters ) {
+    /*
+     * BEGIN: RevSTEM like angle optimization
+     */
+    aol::Vec2<RealType> latticeAnglesDegrees, latticeAnglesRadians;
+    
+    // Calculate projective standard deviations for each angle with 1 degree increments
+    const int l0 = 0.1 * sqrt ( Data.size ( ) );
+    
+    aol::Vector<RealType> projectiveStandardDeviations ( 180 ), projectedAverageIntensities;
+    for ( int angleDegrees=0; angleDegrees<180 ; ++angleDegrees ) {
+      getProjectedAverageIntensities ( projectedAverageIntensities, Data, angleDegrees, l0 ) ;
+      projectiveStandardDeviations[angleDegrees] = projectedAverageIntensities.getStdDev ( );
+    }
+    
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/projectiveStandardDeviations";
+      aol::Plotter<RealType> plotter;
+      plotter.set_outfile_base_name ( ss.str ( ).c_str ( ) );
+      aol::PlotDataFileHandler<RealType> plotHandler;
+      std::vector<std::pair<RealType, RealType> > data;
+      for ( int i=0; i<projectiveStandardDeviations.size ( ) ; ++i ) data.push_back ( std::pair<RealType, RealType> ( i, projectiveStandardDeviations[i] ) );
+      plotHandler.generateFunctionPlot ( data );
+      plotter.addPlotCommandsFromHandler ( plotHandler );
+      plotter.genPlot( aol::GNUPLOT_PNG );
+    }
+    
+    // Find and refine two largest peaks of projective standard deviation
+    
+    // Find 1st peak
+    aol::Vec2<RealType> optParams = fitGaussianToProjectiveStandardDeviationPeak ( projectiveStandardDeviations );
+    latticeAnglesDegrees[0] = to360Degrees ( optParams[0] + 90 );
+    if ( _verbose ) std::cerr << "Peak #1: " << optParams << std::endl;
+    
+    // Remove 2nd peak
+    for ( int angleDegrees=aol::Max<int> ( optParams[0]-sqrt(optParams[1]), 0 ); angleDegrees<=aol::Min<int> ( optParams[0]+sqrt(optParams[1]), 179 ) ; ++angleDegrees )
+      projectiveStandardDeviations[angleDegrees] = 0;
+    
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/projectiveStandardDeviations_peak0Removed";
+      aol::Plotter<RealType> plotter;
+      plotter.set_outfile_base_name ( ss.str ( ).c_str ( ) );
+      aol::PlotDataFileHandler<RealType> plotHandler;
+      std::vector<std::pair<RealType, RealType> > data;
+      for ( int i=0; i<projectiveStandardDeviations.size ( ) ; ++i ) data.push_back ( std::pair<RealType, RealType> ( i, projectiveStandardDeviations[i] ) );
+      plotHandler.generateFunctionPlot ( data );
+      plotter.addPlotCommandsFromHandler ( plotHandler );
+      plotter.genPlot( aol::GNUPLOT_PNG );
+    }
+    
+    // Find 2nd peak
+    optParams = fitGaussianToProjectiveStandardDeviationPeak ( projectiveStandardDeviations );
+    latticeAnglesDegrees[1] = to360Degrees ( optParams[0] + 90 );
+    if ( _verbose ) std::cerr << "Peak #2: " << optParams << std::endl;
+    
+    // Remove 2nd peak
+    for ( int angleDegrees=aol::Max<int> ( optParams[0]-sqrt(optParams[1]), 0 ); angleDegrees<=aol::Min<int> ( optParams[0]+sqrt(optParams[1]), 179 ) ; ++angleDegrees )
+      projectiveStandardDeviations[angleDegrees] = 0;
+
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/projectiveStandardDeviations_peak1Removed";
+      aol::Plotter<RealType> plotter;
+      plotter.set_outfile_base_name ( ss.str ( ).c_str ( ) );
+      aol::PlotDataFileHandler<RealType> plotHandler;
+      std::vector<std::pair<RealType, RealType> > data;
+      for ( int i=0; i<projectiveStandardDeviations.size ( ) ; ++i ) data.push_back ( std::pair<RealType, RealType> ( i, projectiveStandardDeviations[i] ) );
+      plotHandler.generateFunctionPlot ( data );
+      plotter.addPlotCommandsFromHandler ( plotHandler );
+      plotter.genPlot( aol::GNUPLOT_PNG );
+    }
+    
+    if ( _verbose ) {
+      for ( int i=0; i<2 ; ++i ) std::cerr << "Angle #" << i << ": " << latticeAnglesDegrees[i] << std::endl;
+    }
+    
+    for ( int i=0; i<2 ; ++i )
+      latticeAnglesRadians[i] = latticeAnglesDegrees[i] * aol::NumberTrait<RealType>::pi / 180.0;
+    /*
+     * END: RevSTEM like angle optimization
+     */
+    
+    
+    /*
+     * BEGIN: Periodicity optimization based on Energy minimization
+     */
+    aol::Vec2<RealType> latticePeriods;
+    
+    // Preprocess data (to make peak finding and sine fitting more robust)
+    const short filterSize = ( Data.getMaxValue ( ) <= 11 ) ? 7 : 5, filterOffset = ( filterSize - 1 ) / 2;
+    PictureType preprocessedData ( Data.getNumX ( ) - filterSize + 1, Data.getNumY ( ) - filterSize + 1 );
+    PictureType block ( filterSize, filterSize );
+    for ( int x=filterOffset; x<Data.getNumX ( )-filterOffset ; ++x ) {
+      for ( int y=filterOffset; y<Data.getNumY ( )-filterOffset ; ++ y) {
+        Data.copyBlockTo ( x-filterOffset, y-filterOffset, block );
+        preprocessedData.set ( x-filterOffset, y-filterOffset, block.getMeanValue ( ) );
+      }
+    }
+    
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/preprocessedData" << qc::getDefaultArraySuffix ( qc::QC_2D );
+      preprocessedData.save ( ss.str ( ).c_str ( ), qc::PGM_DOUBLE_BINARY );
+    }
+    
+    for ( int i=0; i<2 ; ++i ) {
+      // Compute energies of difference between image and shifted image for a range of possible periods
+      aol::Vector<RealType> energies;
+      for ( int period=0; period<0.5*aol::Min<int> ( Data.getNumX ( ), Data.getNumY ( ) ) ; ++period ) {
+        RealType energy = 0;
+        int numPoints = 0;
+        aol::Vec2<RealType> shiftedPos;
+        for ( int y=0; y<preprocessedData.getNumY ( ) ; ++y ) {
+          for ( int x=0; x<preprocessedData.getNumX ( ) ; ++x ) {
+            shiftedPos.set ( x + period * cos ( latticeAnglesRadians[i] ), y + period * sin ( latticeAnglesRadians[i] ) );
+            if ( shiftedPos[0] >= 0 && shiftedPos[0] < preprocessedData.getNumX ( ) && shiftedPos[1] >= 0 && shiftedPos[1] < preprocessedData.getNumY ( ) ) {
+              energy += aol::Sqr<RealType> ( preprocessedData.get ( x, y ) - preprocessedData.interpolate ( shiftedPos ) );
+              ++numPoints;
+            }
+          }
+        }
+        energies.pushBack ( energy / static_cast<RealType> ( numPoints ) );
+      }
+      
+      if ( _verbose && _outputDir.size ( ) > 0 ) {
+        std::stringstream ss;
+        ss << _outputDir << "/energies_" << i;
+        aol::Plotter<RealType> plotter;
+        plotter.set_outfile_base_name ( ss.str ( ).c_str ( ) );
+        aol::PlotDataFileHandler<RealType> plotHandler;
+        std::vector<std::pair<RealType, RealType> > data;
+        for ( int i=0; i<energies.size ( ) ; ++i ) data.push_back ( std::pair<RealType, RealType> ( i, energies[i] ) );
+        plotHandler.generateFunctionPlot ( data );
+        plotter.addPlotCommandsFromHandler ( plotHandler );
+        plotter.genPlot( aol::GNUPLOT_PNG );
+        
+        ss << ".csv";
+        std::ofstream txtFile ( ss.str ( ).c_str ( ) );
+        for ( int i=0; i<energies.size ( ) ; ++i )
+          txtFile << i << ", " << energies[i] << std::endl;
+        txtFile.close ( );
+      }
+      
+      // Perform periodicity analysis on energies
+      // Step 1: Smooth energies
+      const short filterSizeEnergies = 3, filterOffsetEnergies = ( filterSizeEnergies - 1 ) / 2;
+      aol::Vector<RealType> preprocessedEnergies ( energies.size ( ) );
+      for ( int x=filterOffsetEnergies; x<energies.size ( )-filterOffsetEnergies ; ++x ) {
+        for ( int dx=-filterOffsetEnergies; dx<=filterOffsetEnergies ; ++dx )
+          preprocessedEnergies[x] += energies[x+dx];
+        preprocessedEnergies[x] /= static_cast<RealType> ( filterSizeEnergies );
+      }
+      
+      // Step 2: Find all local minima
+      aol::Vector<RealType> localMinima;
+      aol::Vector<int> localMinimaSpacings;
+      for ( int x=1; x<preprocessedEnergies.size ( )-1 ; ++x ) {
+        if ( preprocessedEnergies[x] < preprocessedEnergies[x-1] && preprocessedEnergies[x] < preprocessedEnergies[x+1] ) {
+          localMinima.pushBack ( preprocessedEnergies[x] );
+          localMinimaSpacings.pushBack ( x );
+        }
+      }
+      
+      // Step 3: Determine local minimum that corresponds to smallest spacing and which belongs to the same class of local minima as the global minimum
+      int minSpacing = energies.size ( );
+      
+      if ( NumClusters[i] > 1 ) {
+        // Step 3.1: Cluster local Minima (currently using k-means and k hast to be set by the user)
+        KMeansClusterer<RealType> kMeansClusterer;
+        aol::Vector<RealType> clusters;
+        aol::Vector<int> clusterLabels;
+        kMeansClusterer.apply ( localMinima, clusters, NumClusters[i], clusterLabels );
+        
+        // Step 3.2: In the cluster with smallest mean (i.e. the one corresponding to the global minimum), identify element that corresponds to smallest spacing
+        std::pair<int, RealType> minClusterIndVal = clusters.getMinIndexAndValue ( );
+        for ( int j=0; j<localMinima.size ( ) ; ++j ) {
+          if ( clusterLabels[j] == minClusterIndVal.first && localMinimaSpacings[j] < minSpacing )
+            minSpacing = localMinimaSpacings[j];
+        }
+      } else {
+        // Step 3.1: Identify local minimum that corresponds to smallest spacing
+        for ( int j=0; j<localMinima.size ( ) ; ++j ) {
+          if ( localMinimaSpacings[j] < minSpacing )
+            minSpacing = localMinimaSpacings[j];
+        }
+      }
+      
+      latticePeriods[i] = minSpacing;
+      if ( _verbose ) std::cerr << "Spacing #" << i+1 << ": " << latticePeriods[i] << std::endl;
+    }
+    
+    /*
+     * END: Periodicty optimization based on Energy minimization
+     */
+    
+    for ( int i=0; i<2 ; ++i ) {
+      LatticeVectors[i][0] = latticePeriods[i] * cos ( latticeAnglesRadians[i] );
+      LatticeVectors[i][1] = latticePeriods[i] * sin ( latticeAnglesRadians[i] );
+    }
+    
+    // Create some output for debugging/analysis (if requested)
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/periodicityAxes.png";
+      saveDataPeriodicityAxesImg ( ss.str ( ).c_str ( ), Data, latticeAnglesRadians );
+      
+      ss.str ( std::string ( ) ); // clear stringstream
+      ss << _outputDir << "/periodicityPattern.png";
+      saveDataPeriodicPatternImg ( ss.str ( ).c_str ( ), Data, LatticeVectors );
+    }
+  }
+  
+  void getLatticeVectorsByProjectiveStdDevAndPeriodicityEnergyMinimization ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data, const aol::Vector<RealType> &Params ) {
+    if ( Params.size ( ) == 2 ) {
+      aol::Vec2<int> numClusters ( 2 );
+      for ( int i=0; i<2 ; ++i ) numClusters[i] = static_cast<int> ( Params[i] );
+      getLatticeVectorsByProjectiveStdDevAndPeriodicityEnergyMinimization ( LatticeVectors, Data, numClusters );
+    } else throw aol::Exception ( "Periodicity energy minimization requires the expected number of local minima clusters along each periodicity axis!" );
+  }
+  
+  RealType to360Degrees ( const RealType Degrees ) const {
+    RealType res = Degrees;
+    if ( res < 0 ) res += 360;
+    if ( res >= 360 ) res -= 360;
+    return res;
+  }
+  
+  const aol::Vec2<RealType> fitGaussianToProjectiveStandardDeviationPeak ( const aol::Vector<RealType> &Data ) const {
+    aol::Vector<RealType> data ( Data );
+    std::pair<int, RealType> indVal = data.getMaxIndexAndValue ( );
+    std::vector<std::pair<RealType, RealType> > dataPairs;
+    aol::Vec2<int> angleDegreesMinMax;
+    for ( int sign=-1; sign<=1 ; sign+=2 ) {
+      int angleDegrees = indVal.first;
+      while ( data[angleDegrees] > 0.75 * indVal.second ) angleDegrees += sign;
+      angleDegreesMinMax[( sign + 1 ) / 2] = angleDegrees;
+    }
+    int angleDegreeAbsThreshold = aol::Min<int> ( indVal.first - angleDegreesMinMax[0], angleDegreesMinMax[1] - indVal.first );
+    for ( int angleDegrees=indVal.first-angleDegreeAbsThreshold; angleDegrees<=indVal.first+angleDegreeAbsThreshold ; ++angleDegrees )
+      dataPairs.push_back ( std::pair<RealType, RealType> ( angleDegrees, data[angleDegrees] ) );
+
+    Gaussian1DTargetFunctional<RealType> F ( dataPairs );
+    Gaussian1DTargetJacobian<RealType, aol::FullMatrix<RealType> > DF ( dataPairs );
+    LevenbergMarquardtAlgorithm<RealType, aol::FullMatrix<RealType>, LinearRegressionQR<RealType> > levenbergMarquardtAlg ( dataPairs.size ( ),
+                                                                                                                            F, DF, 50, 1, 0.2, 0.8, 1e-6, 1e-6, 1e-6, false );
+    aol::Vector<RealType> arg ( 3 ), dest ( 3 );
+    arg[0] = indVal.first;
+    arg[1] = aol::Sqr<RealType> ( ( angleDegreesMinMax[1] - angleDegreesMinMax[0] ) / 6 );
+    arg[2] = indVal.second;
+    levenbergMarquardtAlg.apply ( arg, dest );
+    
+    if ( _verbose && _outputDir.size ( ) > 0 ) {
+      std::stringstream ss;
+      ss << _outputDir << "/peakData_" << indVal.first;
+      aol::Plotter<RealType> plotter;
+      plotter.set_outfile_base_name ( ss.str ( ).c_str ( ) );
+      aol::PlotDataFileHandler<RealType> plotHandler;
+      plotHandler.generateFunctionPlot ( dataPairs );
+      plotter.addPlotCommandsFromHandler ( plotHandler );
+      plotter.genPlot( aol::GNUPLOT_PNG );
+    }
+    
+    return aol::Vec2<RealType> ( dest[0], dest[1] );
+  }
+  
+  void getProjectedAverageIntensities ( aol::Vector<RealType> &ProjectedAverageIntensities, const PictureType &Data, const RealType AngleDegrees, const int L0 ) const {
+    RealType angleRadians = AngleDegrees * aol::NumberTrait<RealType>::pi / 180.0;
+    std::map<int, RealType> aDelta, nDelta;
+    
+    // Project image onto line with origin (0,0) and angle angleRadians
+    for ( int y=0; y<Data.getNumY ( ) ; ++y ) {
+      for ( int x=0; x<Data.getNumX ( ) ; ++x ) {
+        const int p = floor ( getProjectedPosition ( x, y, angleRadians ) );
+        nDelta[p] = nDelta[p] + 1;
+        aDelta[p] = aDelta[p] + Data.get ( x, y );
+      }
+    }
+    
+    // Normalize and threshold bins, then convert projected average intensities to vector and compute standard deviation
+    ProjectedAverageIntensities.resize ( 0 );
+    for ( typename std::map<int, RealType>::iterator it=aDelta.begin ( ); it != aDelta.end ( ); ++it ) {
+      if ( nDelta[it->first] >= L0 ) aDelta[it->first] = aDelta[it->first] / nDelta[it->first];
+      else aDelta[it->first] = 0;
+      ProjectedAverageIntensities.pushBack ( aDelta[it->first] );
+    }
+    RealType meanVal = ProjectedAverageIntensities.getMeanValue ( );
+    for ( int i=0; i<ProjectedAverageIntensities.size ( ) ; ++i ) {
+      if ( ProjectedAverageIntensities[i] == 0 ) ProjectedAverageIntensities[i] = meanVal;
+    }
+  }
+  
+  RealType getProjectedPosition ( const int X, const int Y, const RealType AngleRadians ) const {
+    return X * cos ( AngleRadians ) + Y * sin ( AngleRadians );
+  }
+  
+  
+  
+  void getLatticeVectorsByFourierPeakExtractionAndSineFit ( aol::MultiVector<RealType> &LatticeVectors, const PictureType &Data ) {
     // Calculate fourier power coefficients
-    const RealType mean = _data.getMeanValue ( );
-    qc::MultiArray<RealType, 2, 2> dataEliminatedMean ( _data.getNumX ( ), _data.getNumY ( ) );
-    for ( short i=0; i<_data.getNumX ( ) ; ++i )
-      for ( short j=0; j<_data.getNumY ( ) ; ++j )
-        dataEliminatedMean[0].set ( i, j, _data.get ( i, j ) - mean );
-    qc::ScalarArray<RealType, qc::QC_2D> modulus ( _data.getNumX ( ), _data.getNumY ( ) );
+    const RealType mean = Data.getMeanValue ( );
+    qc::MultiArray<RealType, 2, 2> dataEliminatedMean ( Data.getNumX ( ), Data.getNumY ( ) );
+    for ( short i=0; i<Data.getNumX ( ) ; ++i )
+      for ( short j=0; j<Data.getNumY ( ) ; ++j )
+        dataEliminatedMean[0].set ( i, j, Data.get ( i, j ) - mean );
+    qc::ScalarArray<RealType, qc::QC_2D> modulus ( Data.getNumX ( ), Data.getNumY ( ) );
     qc::computeLogFFTModulus<RealType> ( dataEliminatedMean[0], modulus, 0, false );
-    _fourierPowerCoefficients.rotate90From ( modulus );
-    _fourierPowerCoefficients.scaleValuesTo01 ( );
+    PictureType fourierPowerCoefficients;
+    fourierPowerCoefficients.rotate90From ( modulus );
+    fourierPowerCoefficients.scaleValuesTo01 ( );
 
     // Find fourier power peaks
-    _fourierPowerPeaks = _fourierPowerCoefficients;
+    aol::MultiVector<RealType> peaks ( 2, 2 );
+    PictureType fourierPowerPeaks ( fourierPowerCoefficients );
+    qc::FastILexMapper<qc::QC_2D> mapper ( fourierPowerPeaks.getNumX ( ), fourierPowerPeaks.getNumY ( ) );
     std::pair<int, RealType> maxIndVal;
-    aol::Vec2<RealType> peakPos;
-    while ( _peaks.size ( ) < 2 ) {
-      maxIndVal = _fourierPowerPeaks.getMaxIndexAndValue ( );
+    aol::Vec2<RealType> peakPos, center ( Data.getNumX ( ) / 2, Data.getNumY ( ) / 2 );
+    int peakIdx = 0;
+    while ( peakIdx < 2 ) {
+      maxIndVal = fourierPowerPeaks.getMaxIndexAndValue ( );
       for ( short dx=-1; dx<=1 ; ++dx )
         for ( short dy=-1; dy<=1 ; ++dy )
-          _fourierPowerPeaks.set ( _mapper.splitGlobalIndex ( maxIndVal.first )[0] + dx, _mapper.splitGlobalIndex ( maxIndVal.first )[1] + dy, 0 );
-      peakPos.set ( _mapper.splitGlobalIndex ( maxIndVal.first )[0], _mapper.splitGlobalIndex ( maxIndVal.first )[1] + 1 ); // TODO: why is the center incorrect?
-      peakPos -= _center;
+          fourierPowerPeaks.set ( mapper.splitGlobalIndex ( maxIndVal.first )[0] + dx, mapper.splitGlobalIndex ( maxIndVal.first )[1] + dy, 0 );
+      peakPos.set ( mapper.splitGlobalIndex ( maxIndVal.first )[0], mapper.splitGlobalIndex ( maxIndVal.first )[1] + 1 ); // TODO: why is the center incorrect?
+      peakPos -= center;
       bool angleTooSmall = false;
-      for ( short k=0; k<_peaks.size ( ) ; ++k ) {
-        const RealType p1dotp2 = peakPos.dotProduct ( _peaks[k] ) / ( peakPos.norm ( ) * _peaks[k].norm ( ) );
+      for ( short k=0; k<peakIdx ; ++k ) {
+        const RealType p1dotp2 = peakPos.dotProduct ( aol::Vec2<RealType> ( peaks[k][0], peaks[k][1] ) ) / ( peakPos.norm ( ) * peaks[k].norm ( ) );
         if ( p1dotp2 < -0.9 || p1dotp2 > 0.9 )
           angleTooSmall = true;
       }
       if ( !angleTooSmall ) {
-        _peaks.pushBack ( peakPos );
-        _fourierPowerPeaks[maxIndVal.first] = -1;
+        peaks[peakIdx][0] = peakPos[0]; peaks[peakIdx][1] = peakPos[1];
+        fourierPowerPeaks[maxIndVal.first] = -1;
+        ++peakIdx;
       }
     }
-    _fourierPowerPeaks.clamp ( -1, 0 );
-    _fourierPowerPeaks *= -1;
+    fourierPowerPeaks.clamp ( -1, 0 );
+    fourierPowerPeaks *= -1;
 
     // Calculate angles of main axes of periodicity from the peak positions
-    _periodicityAnglesRadians.resize ( 2 );
-    _periodicityAnglesDegrees.resize ( 2 );
-    for ( short i=0; i<2 ; ++i ) {
-      _periodicityAnglesRadians[i] = atan ( _peaks[i][1] / _peaks[i][0] );
-      _periodicityAnglesDegrees[i] = _periodicityAnglesRadians[i] * 180 / aol::NumberTrait<RealType>::pi;
-    }
+    aol::Vec2<RealType> latticeAngles;
+    for ( short i=0; i<2 ; ++i )
+      latticeAngles[i] = atan ( peaks[i][1] / peaks[i][0] );
     
     /*
      * BEGIN: Calculate periodicity spacings
      */
+    aol::Vec2<RealType> latticePeriods;
+    
     // Preprocess data (to make peak finding and sine fitting more robust)
-    const short filterSize = ( _data.getMaxValue ( ) <= 11 ) ? 7 : 5, filterOffset = ( filterSize - 1 ) / 2;
-    PictureType preprocessedData ( _data.getNumX ( ) - filterSize + 1, _data.getNumY ( ) - filterSize + 1 );
+    const short filterSize = ( Data.getMaxValue ( ) <= 11 ) ? 7 : 5, filterOffset = ( filterSize - 1 ) / 2;
+    PictureType preprocessedData ( Data.getNumX ( ) - filterSize + 1, Data.getNumY ( ) - filterSize + 1 );
     PictureType block ( filterSize, filterSize );
-    for ( int x=filterOffset; x<_data.getNumX ( )-filterOffset ; ++x ) {
-      for ( int y=filterOffset; y<_data.getNumY ( )-filterOffset ; ++ y) {
-        _data.copyBlockTo ( x-filterOffset, y-filterOffset, block );
+    for ( int x=filterOffset; x<Data.getNumX ( )-filterOffset ; ++x ) {
+      for ( int y=filterOffset; y<Data.getNumY ( )-filterOffset ; ++ y) {
+        Data.copyBlockTo ( x-filterOffset, y-filterOffset, block );
         preprocessedData.set ( x-filterOffset, y-filterOffset, block.getMeanValue ( ) );
       }
     }
@@ -109,29 +556,26 @@ public:
       preprocessedData.savePNG ( ss.str ( ).c_str ( ) );
     }
     
-    
-    _periodicitySpacingsPixels.resize ( 2 );
-    
     // Find brightest peak and see which of the two axes offers the larger intersection with the image
-    const qc::FastILexMapper<qc::QC_2D> mapper ( preprocessedData.getNumX ( ), preprocessedData.getNumY ( ) );
-    aol::Vec2<short> peak ( mapper.splitGlobalIndex ( preprocessedData.getMaxIndexAndValue ( ).first )[0],
-                            mapper.splitGlobalIndex ( preprocessedData.getMaxIndexAndValue ( ).first )[1] );
+    const qc::FastILexMapper<qc::QC_2D> mapperReduced ( preprocessedData.getNumX ( ), preprocessedData.getNumY ( ) );
+    aol::Vec2<short> peak ( mapperReduced.splitGlobalIndex ( preprocessedData.getMaxIndexAndValue ( ).first )[0],
+                            mapperReduced.splitGlobalIndex ( preprocessedData.getMaxIndexAndValue ( ).first )[1] );
     aol::RandomAccessContainer<std::vector<std::pair<RealType, RealType> > > intensitiesContainer ( 2 );
-    for ( int k=0; k<2 ; ++k ) setIntensitiesAlongAxis ( intensitiesContainer[k], preprocessedData, _periodicityAnglesRadians[k], peak );
+    for ( int k=0; k<2 ; ++k ) setIntensitiesAlongAxis ( intensitiesContainer[k], preprocessedData, latticeAngles[k], peak );
     const short kFirst = ( intensitiesContainer[0].size ( ) > intensitiesContainer[1].size ( ) ) ? 0 : 1;
 
     // Get periodicity spacing along primary axis kFirst
     RealType energy;
-    _periodicitySpacingsPixels[kFirst] = getPeriodicitySpacing ( intensitiesContainer[kFirst], energy, 1 );
+    latticePeriods[kFirst] = getPeriodicitySpacing ( intensitiesContainer[kFirst], energy, 1 );
     
     // Move origin of secondary axis along primary axis from brightest peak in periodicity steps,
     // and extract intensities from where the intersection of secondary axis with the image is largest
     std::vector<std::pair<RealType, RealType> > intensities;
-    setIntensitiesAlongAxis ( intensities, preprocessedData, _periodicityAnglesRadians[1-kFirst], peak );
+    setIntensitiesAlongAxis ( intensities, preprocessedData, latticeAngles[1-kFirst], peak );
     short direction = 1;
     aol::Vec2<RealType> pos ( peak[0], peak[1] );
-    aol::Vec2<RealType> stepVector ( direction * _periodicitySpacingsPixels[kFirst] * cos ( _periodicityAnglesRadians[kFirst] ),
-                                     direction * _periodicitySpacingsPixels[kFirst] * sin ( _periodicityAnglesRadians[kFirst] ) );
+    aol::Vec2<RealType> stepVector ( direction * latticePeriods[kFirst] * cos ( latticeAngles[kFirst] ),
+                                     direction * latticePeriods[kFirst] * sin ( latticeAngles[kFirst] ) );
     short maxIntensitiesSize = 0;
     aol::Vec2<short> maxIntersectionOrigin;
     while ( true ) {
@@ -158,39 +602,46 @@ public:
         }
       }
       pos.set ( localMaxPos[0], localMaxPos[1] );
-      setIntensitiesAlongAxis ( intensities, preprocessedData, _periodicityAnglesRadians[1-kFirst], localMaxPos );
+      setIntensitiesAlongAxis ( intensities, preprocessedData, latticeAngles[1-kFirst], localMaxPos );
       if ( intensities.size ( ) > maxIntensitiesSize ) {
         maxIntensitiesSize = intensities.size ( );
         maxIntersectionOrigin.set ( localMaxPos );
       }
     }
-    setIntensitiesAlongAxis ( intensities, preprocessedData, _periodicityAnglesRadians[1-kFirst], maxIntersectionOrigin );
+    setIntensitiesAlongAxis ( intensities, preprocessedData, latticeAngles[1-kFirst], maxIntersectionOrigin );
     
     // Get periodicity spacing along secondary axis 1-kFirst
-    _periodicitySpacingsPixels[1-kFirst] = getPeriodicitySpacing ( intensities, energy, 2 );
+    latticePeriods[1-kFirst] = getPeriodicitySpacing ( intensities, energy, 2 );
     
     /*
      * END: Calculate periodicity spacings
      */
+    
+    for ( int i=0; i<2 ; ++i ) {
+      LatticeVectors[i][0] = latticePeriods[i] * cos ( latticeAngles[i] );
+      LatticeVectors[i][1] = latticePeriods[i] * sin ( latticeAngles[i] );
+    }
     
     
     // Create some output for debugging/analysis (if requested)
     if ( _verbose && _outputDir.size ( ) > 0 ) {
       std::stringstream ss;
       ss << _outputDir << "/periodicityFourierPeaks.png";
-      saveFourierCoefficients ( ss.str ( ).c_str ( ), true, true );
+      saveFourierCoefficients ( ss.str ( ).c_str ( ), fourierPowerCoefficients, true,
+                                true, center, peaks,
+                                true, latticeAngles );
       
       ss.str ( std::string ( ) ); // clear stringstream
       ss << _outputDir << "/periodicityAxes.png";
-      saveDataPeriodicityAxesImg ( ss.str ( ).c_str ( ) );
+      saveDataPeriodicityAxesImg ( ss.str ( ).c_str ( ), Data, latticeAngles );
       
       ss.str ( std::string ( ) ); // clear stringstream
       ss << _outputDir << "/periodicityPattern.png";
-      saveDataPeriodicPatternImg ( ss.str ( ).c_str ( ) );
+      saveDataPeriodicPatternImg ( ss.str ( ).c_str ( ), Data, LatticeVectors );
     }
     
     if ( _verbose )
-      std::cerr << _periodicitySpacingsPixels << std::endl;
+      std::cerr << latticePeriods << std::endl;
     
     if ( _verbose && _outputDir.size ( ) > 0 ) {
       std::stringstream ss;
@@ -199,201 +650,20 @@ public:
       txtFile.open ( ss.str ( ).c_str ( ) );
       txtFile << "Estimated grid parameters" << std::endl;
       txtFile << std::endl;
-      txtFile << "Delta x_1 = " << _periodicitySpacingsPixels[0] << " pixels" << std::endl;
-      txtFile << "Delta x_2 = " << _periodicitySpacingsPixels[1] << " pixels" << std::endl;
+      txtFile << "Delta x_1 = " << latticePeriods[0] << " pixels" << std::endl;
+      txtFile << "Delta x_2 = " << latticePeriods[1] << " pixels" << std::endl;
       txtFile << std::endl;
-      txtFile << "alpha_1 = " << _periodicityAnglesDegrees[0] << " degrees" << std::endl;
-      txtFile << "alpha_2 = " << _periodicityAnglesDegrees[1] << " degrees" << std::endl;
-      txtFile << "alpha_1 = " << _periodicityAnglesRadians[0] << " radians" << std::endl;
-      txtFile << "alpha_2 = " << _periodicityAnglesRadians[1] << " radians" << std::endl;
+      txtFile << "alpha_1 = " << latticeAngles[0] * 180.0 / aol::NumberTrait<RealType>::pi << " degrees" << std::endl;
+      txtFile << "alpha_2 = " << latticeAngles[1] * 180.0 / aol::NumberTrait<RealType>::pi << " degrees" << std::endl;
+      txtFile << "alpha_1 = " << latticeAngles[0] << " radians" << std::endl;
+      txtFile << "alpha_2 = " << latticeAngles[1] << " radians" << std::endl;
       txtFile.close ( );
     }
   }
-
-  const aol::RandomAccessContainer<aol::Vec2<RealType> >& getPeakPositions ( ) const {
-    return _peaks;
-  }
-
-  const aol::Vector<RealType>& getPeriodicitySpacingsPixels ( ) const {
-    return _periodicitySpacingsPixels;
-  }
   
-  const aol::Vector<RealType>& getPeriodicityAnglesRadians ( ) const {
-    return _periodicityAnglesRadians;
-  }
-
-  const aol::Vector<RealType>& getPeriodicityAnglesDegrees ( ) const {
-    return _periodicityAnglesDegrees;
-  }
-  
-  RealType getPeriodicityAnglesRadians ( const short Axis ) const {
-    if ( Axis < 0 || Axis > 2 )
-      throw aol::Exception ( "Argument \"Axis\" has to be between 0 and 2!", __FILE__, __LINE__ );
-    return _periodicityAnglesRadians[Axis];
-  }
-
-  RealType getPeriodicityAnglesDegrees ( const short Axis ) const {
-    if ( Axis < 0 || Axis > 2 )
-      throw aol::Exception ( "Argument \"Axis\" has to be between 0 and 2!", __FILE__, __LINE__ );
-    return _periodicityAnglesDegrees[Axis];
-  }
-
-  void saveFourierCoefficients ( const char* Path, const bool LogScale = false, const bool RedPeaks = false, const bool BlueAxes = false ) {
-    PictureType u ( _fourierPowerCoefficients );
-    RealType uMax = u.getMaxValue ( );
-    if ( LogScale ) {
-      for ( int k = 0; k<u.size ( ) ; ++k )
-        u[k] = log ( 1 + u[k] / uMax * 255 );
-      uMax = u.getMaxValue ( );
-    }
-    
-    if ( RedPeaks ) {
-      ColoredPictureType v ( u.getNumX ( ), u.getNumY ( ) );
-      v[0] = u;
-      v[1] = u;
-      v[2] = u;
-      for ( int k=0; k<_peaks.size ( ) ; ++k ) {
-        v[0].set ( _peaks[k][0] + _center[0], _peaks[k][1] + _center[1] - 1, uMax );
-        v[1].set ( _peaks[k][0] + _center[0], _peaks[k][1] + _center[1] - 1, 0 );
-        v[2].set ( _peaks[k][0] + _center[0], _peaks[k][1] + _center[1] - 1, 0 );
-      }
-      v.setOverflowHandling ( aol::CLIP_THEN_SCALE, v.getMinValue ( ), v.getMaxValue ( ) );
-      v.savePNG ( Path );
-    } else if ( BlueAxes ) {
-      ColoredPictureType v ( u.getNumX ( ), u.getNumY ( ) );
-      v[0] = u;
-      v[1] = u;
-      v[2] = u;
-      aol::Vec2<short> pos;
-      for ( short k=0; k<2 ; ++k ) {
-        for ( short i=-_data.getNumX ( ); i<_data.getNumX ( ) ; ++i ) {
-          pos.set ( _center[0] + cos ( _periodicityAnglesRadians[k] ) * i, _center[1] + sin ( _periodicityAnglesRadians[k] ) * i );
-          if ( pos[0] >= 0 && pos[0] < _data.getNumX ( ) && pos[1] >= 0 && pos[1] < _data.getNumY ( ) ) {
-            v[0].set ( pos, 0 );
-            v[1].set ( pos, 0 );
-            v[2].set ( pos, uMax );
-          }
-        }
-      }
-      v.setOverflowHandling ( aol::CLIP_THEN_SCALE, v.getMinValue ( ), v.getMaxValue ( ) );
-      v.savePNG ( Path );
-    } else
-      u.save ( Path, qc::PGM_DOUBLE_BINARY );
-  }
-
-  void saveFourierPeaks ( const char* Path ) {
-    _fourierPowerPeaks.save ( Path, qc::PGM_DOUBLE_BINARY );
-  }
-
-  void saveDataPeriodicityAxesImg ( const char* Path, const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ), const short Axis = -1 ) {
-    if ( Axis < -1 || Axis > 1 )
-      throw aol::Exception ( "Argument \"Axis\" has to be between -1 and 1!", __FILE__, __LINE__ );
-    
-    aol::Vec2<short> origin ( Origin );
-    if ( origin[0] < 0 || origin[0] >= _data.getNumX ( ) || origin[1] < 0 || origin[1] >= _data.getNumY ( ) )
-      origin.set ( _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[0], _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[1] );
-    
-    ColoredPictureType periodicityAxesImg ( _data.getNumX ( ), _data.getNumY ( ) );
-    periodicityAxesImg[0] = _data;
-    periodicityAxesImg[1] = _data;
-    periodicityAxesImg[2] = _data;
-    aol::Vec2<short> pos;
-    aol::Vector<short> axes;
-    if ( Axis == -1 ) {
-      axes.pushBack ( 0 );
-      axes.pushBack ( 1 );
-    } else axes.pushBack ( Axis );
-    for ( short k=0; k<axes.size ( ) ; ++k ) {
-      for ( short i=-_data.getNumX ( ); i<_data.getNumX ( ) ; ++i ) {
-        pos.set ( origin[0] + cos ( _periodicityAnglesRadians[axes[k]] ) * i, origin[1] + sin ( _periodicityAnglesRadians[axes[k]] ) * i );
-        if ( pos[0] >= 0 && pos[0] < _data.getNumX ( ) && pos[1] >= 0 && pos[1] < _data.getNumY ( ) ) {
-          periodicityAxesImg[0].set ( pos, 0 );
-          periodicityAxesImg[1].set ( pos, 0 );
-          periodicityAxesImg[2].set ( pos, _data.getMaxValue ( ) );
-        }
-      }
-    }
-    periodicityAxesImg.setOverflowHandling ( aol::CLIP_THEN_SCALE, _data.getMinValue ( ), _data.getMaxValue ( ) );
-    periodicityAxesImg.savePNG ( Path );
-  }
-  
-  void saveDataPeriodicPatternImg ( const char* Path, const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ), const short SearchWindowSize = 1 ) {
-    aol::Vec2<short> origin ( Origin );
-    if ( origin[0] < 0 || origin[0] >= _data.getNumX ( ) || origin[1] < 0 || origin[1] >= _data.getNumY ( ) )
-      origin.set ( _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[0], _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[1] );
-    
-    const short searchWindowOffset = ( SearchWindowSize - 1 ) / 2;
-
-    ColoredPictureType periodicityAxesImg ( _data.getNumX ( ), _data.getNumY ( ) );
-    for ( short i=0; i<_data.getNumX ( ) ; ++i ) {
-      for ( short j=0; j<_data.getNumY ( ) ; ++j ) {
-        periodicityAxesImg[0].set ( i, j, _data.get ( i, j ) );
-        periodicityAxesImg[1].set ( i, j, _data.get ( i, j ) );
-        periodicityAxesImg[2].set ( i, j, _data.get ( i, j ) );
-      }
-    }
-    
-    aol::Vec2<short> pos1, pos2, pos3;
-    pos1.set ( origin );
-    for ( short i=-_data.getNumX ( ); i<_data.getNumX ( ) ; ++i ) {
-      pos1.set ( origin[0] + cos ( _periodicityAnglesRadians[0] ) * i * _periodicitySpacingsPixels[0],
-                 origin[1] + sin ( _periodicityAnglesRadians[0] ) * i * _periodicitySpacingsPixels[0] );
-      for ( short j=-_data.getNumX ( ); j<_data.getNumX ( ) ; ++j ) {
-        pos2.set ( pos1[0] + cos ( _periodicityAnglesRadians[1] ) * j * _periodicitySpacingsPixels[1],
-                   pos1[1] + sin ( _periodicityAnglesRadians[1] ) * j * _periodicitySpacingsPixels[1] );
-        for ( short dx=-searchWindowOffset; dx<=searchWindowOffset ; ++dx ) {
-          for ( short dy=-searchWindowOffset; dy<=searchWindowOffset ; ++dy ) {
-            pos3.set ( pos2[0] + dx, pos2[1] + dy );
-            if ( pos3[0] >= 0 && pos3[0] < _data.getNumX ( ) && pos3[1] >= 0 && pos3[1] < _data.getNumY ( ) ) {
-              periodicityAxesImg[0].set ( pos3, _data.getMaxValue ( ) );
-              periodicityAxesImg[1].set ( pos3, 0 );
-              periodicityAxesImg[2].set ( pos3, 0 );
-            }
-          }
-        }
-      }
-    }
-    periodicityAxesImg[0].set ( origin, 0 );
-    periodicityAxesImg[1].set ( origin, _data.getMaxValue ( ) );
-    periodicityAxesImg.setOverflowHandling ( aol::SCALE, 0, 255 );
-    periodicityAxesImg.savePNG ( Path );
-  }
-  
-  void saveIntensityPlotAlongPeriodicAxis ( const char* Path, const short Axis, const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ) ) {
-    if ( Axis < 0 || Axis > 1 )
-      throw aol::Exception ( "Argument \"Axis\" has to be between 0 and 1!", __FILE__, __LINE__ );
-    
-    aol::Vec2<short> origin ( Origin );
-    if ( origin[0] < 0 || origin[0] >= _data.getNumX ( ) || origin[1] < 0 || origin[1] >= _data.getNumY ( ) )
-      origin.set ( _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[0], _mapper.splitGlobalIndex ( _data.getMaxIndexAndValue ( ).first )[1] );
-    
-    std::vector<std::pair<RealType, RealType> > intensities;
-    aol::Vec2<short> pos;
-    for ( short sign=-1; sign<=1 ; sign+=2 ) {
-      int i = ( sign == -1 ) ? 1 : 0;
-      pos.set ( origin[0], origin[1] );
-      while ( pos[0] >= 0 && pos[0] < _data.getNumX ( ) && pos[1] >= 0 && pos[1] < _data.getNumY ( ) ) {
-        intensities.insert ( ( sign == -1 ) ? intensities.begin ( ) : intensities.end ( ),
-                             std::pair<RealType, RealType> ( sign * i * aol::Vec2<RealType> ( cos ( _periodicityAnglesRadians[Axis] ),
-                                                                                              sin ( _periodicityAnglesRadians[Axis] ) ).norm ( ),
-                                                                                              _data.get ( pos ) ) );
-        ++i;
-        pos.set ( origin[0] + sign * cos ( _periodicityAnglesRadians[Axis] ) * i, origin[1] + sign * sin ( _periodicityAnglesRadians[Axis] ) * i );
-      }
-    }
-  
-    aol::Plotter<RealType> plotter;
-    plotter.set_outfile_base_name ( Path );
-    aol::PlotDataFileHandler<RealType> plotHandler;
-    plotHandler.generateFunctionPlot ( intensities );
-    plotter.addPlotCommandsFromHandler ( plotHandler );
-    plotter.genPlot( aol::GNUPLOT_PNG );
-  }
-  
-protected:
   void setIntensitiesAlongAxis ( std::vector<std::pair<RealType, RealType> > &Intensities,
-                                 const PictureType &Data, const RealType AngleRadians,
-                                 const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ) ) {
+                                const PictureType &Data, const RealType AngleRadians,
+                                const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ) ) {
     Intensities.clear ( );
     const qc::FastILexMapper<qc::QC_2D> mapper ( Data.getNumX ( ), Data.getNumY ( ) );
     
@@ -407,8 +677,8 @@ protected:
       pos.set ( origin[0], origin[1] );
       while ( pos[0] >= 0 && pos[0] < Data.getNumX ( ) && pos[1] >= 0 && pos[1] < Data.getNumY ( ) ) {
         Intensities.insert ( ( sign == -1 ) ? Intensities.begin ( ) : Intensities.end ( ),
-                             std::pair<RealType, RealType> ( sign * i * aol::Vec2<RealType> ( cos ( AngleRadians ), sin ( AngleRadians ) ).norm ( ),
-                                                             Data.get ( pos ) ) );
+                            std::pair<RealType, RealType> ( sign * i * aol::Vec2<RealType> ( cos ( AngleRadians ), sin ( AngleRadians ) ).norm ( ),
+                                                           Data.get ( pos ) ) );
         ++i;
         pos.set ( origin[0] + sign * cos ( AngleRadians ) * i, origin[1] + sign * sin ( AngleRadians ) * i );
       }
@@ -439,7 +709,7 @@ protected:
     aol::Vector<RealType> energies, frequencies, optDest ( dest.size ( ) );
     aol::Vector<RealType> diffs ( intensitiesZeroMean.size ( ) );
     RealType energy = 0;
-
+    
     setCtrlCHandler ( );
     std::stringstream ss;
     ss << "PatternAnalysis: computing spacing along axis #" << OutputNr << " (step " << OutputNr << "/2)";
@@ -461,8 +731,8 @@ protected:
     
     if ( _verbose ) {
       std::cerr << "Optimal initial frequency=" << 2 * aol::NumberTrait<RealType>::pi / ( energies.getMinIndexAndValue ( ).first + 1)
-                << "; optimal frequency=" << frequencies[energies.getMinIndexAndValue ( ).first]
-                << "; minimal energy=" << energies[energies.getMinIndexAndValue ( ).first] << std::endl;
+      << "; optimal frequency=" << frequencies[energies.getMinIndexAndValue ( ).first]
+      << "; minimal energy=" << energies[energies.getMinIndexAndValue ( ).first] << std::endl;
     }
     
     RealType periodicitySpacing = aol::Abs<RealType> ( 2 * aol::NumberTrait<RealType>::pi / frequencies[energies.getMinIndexAndValue ( ).first] );
@@ -471,7 +741,7 @@ protected:
       std::vector<std::pair<RealType, RealType> > sumOfSines;
       for ( int i=0; i<intensitiesZeroMean.size ( ) ; ++i )
         sumOfSines.push_back ( std::pair<RealType, RealType> ( intensitiesZeroMean[i].first,
-                                                               SumOfSinesLeastSquaresEnergy<RealType>::sumOfSines ( intensitiesZeroMean[i].first, optDest, numTerms ) ) );
+                                                              SumOfSinesLeastSquaresEnergy<RealType>::sumOfSines ( intensitiesZeroMean[i].first, optDest, numTerms ) ) );
       
       std::stringstream ss;
       ss << _outputDir << "/intensitiesZeroMean_vs_sumOfSines_" << OutputNr;
@@ -496,6 +766,179 @@ protected:
     
     Energy = energies.getMinValue ( );
     return periodicitySpacing;
+  }
+  
+  
+  
+  void saveFourierCoefficients ( const char* Path, const PictureType &Coefficients, const bool LogScale = false,
+                                 const bool RedPeaks = false, const aol::Vec2<RealType> &Center = aol::Vec2<RealType> ( -1, -1 ), const aol::MultiVector<RealType> &Peaks = aol::MultiVector<RealType> ( ),
+                                 const bool BlueAxes = false, const aol::Vec2<RealType> &LatticeAngles = aol::Vec2<RealType> ( -1, -1 ) ) const {
+    PictureType u ( Coefficients );
+    RealType uMax = u.getMaxValue ( );
+    if ( LogScale ) {
+      for ( int k = 0; k<u.size ( ) ; ++k )
+        u[k] = log ( 1 + u[k] / uMax * 255 );
+      uMax = u.getMaxValue ( );
+    }
+    
+    if ( RedPeaks ) {
+      ColoredPictureType v ( u.getNumX ( ), u.getNumY ( ) );
+      v[0] = u;
+      v[1] = u;
+      v[2] = u;
+      for ( int k=0; k<Peaks.numComponents ( ) ; ++k ) {
+        v[0].set ( Peaks[k][0] + Center[0], Peaks[k][1] + Center[1] - 1, uMax );
+        v[1].set ( Peaks[k][0] + Center[0], Peaks[k][1] + Center[1] - 1, 0 );
+        v[2].set ( Peaks[k][0] + Center[0], Peaks[k][1] + Center[1] - 1, 0 );
+      }
+      v.setOverflowHandling ( aol::CLIP_THEN_SCALE, v.getMinValue ( ), v.getMaxValue ( ) );
+      v.savePNG ( Path );
+    } else if ( BlueAxes ) {
+      ColoredPictureType v ( u.getNumX ( ), u.getNumY ( ) );
+      v[0] = u;
+      v[1] = u;
+      v[2] = u;
+      aol::Vec2<short> pos;
+      for ( short k=0; k<2 ; ++k ) {
+        for ( short i=-Coefficients.getNumX ( ); i<Coefficients.getNumX ( ) ; ++i ) {
+          pos.set ( Center[0] + cos ( LatticeAngles[k] ) * i, Center[1] + sin ( LatticeAngles[k] ) * i );
+          if ( pos[0] >= 0 && pos[0] < Coefficients.getNumX ( ) && pos[1] >= 0 && pos[1] < Coefficients.getNumY ( ) ) {
+            v[0].set ( pos, 0 );
+            v[1].set ( pos, 0 );
+            v[2].set ( pos, uMax );
+          }
+        }
+      }
+      v.setOverflowHandling ( aol::CLIP_THEN_SCALE, v.getMinValue ( ), v.getMaxValue ( ) );
+      v.savePNG ( Path );
+    } else u.save ( Path, qc::PGM_DOUBLE_BINARY );
+  }
+  
+  void saveFourierCoefficientsRedPeaks ( const char* Path, const PictureType Coefficients,
+                                         const aol::Vec2<RealType> &Center, const aol::MultiVector<RealType> &Peaks,
+                                         const bool LogScale = false ) const {
+    aol::Vec2<RealType> latticeAngles;
+    saveFourierCoefficients ( Path, Coefficients, LogScale, true, Center, Peaks, false, latticeAngles );
+  }
+  
+  void saveFourierCoefficientsBlueAxes ( const char* Path, const PictureType Coefficients,
+                                         const aol::Vec2<RealType> &LatticeAngles,
+                                         const bool LogScale = false ) const {
+    aol::Vec2<RealType> center;
+    aol::MultiVector<RealType> peaks;
+    saveFourierCoefficients ( Path, Coefficients, LogScale, false, center, peaks, true, LatticeAngles );
+  }
+
+  void saveDataPeriodicityAxesImg ( const char* Path, const PictureType &Data, const aol::Vec2<RealType> &LatticeAnglesRadians,
+                                    const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ), const short Axis = -1 ) const {
+    if ( Axis < -1 || Axis > 1 )
+      throw aol::Exception ( "Argument \"Axis\" has to be between -1 and 1!", __FILE__, __LINE__ );
+    
+    aol::Vec2<short> origin ( Origin );
+    if ( origin[0] < 0 || origin[0] >= Data.getNumX ( ) || origin[1] < 0 || origin[1] >= Data.getNumY ( ) ) {
+      qc::FastILexMapper<qc::QC_2D> mapper ( Data.getNumX ( ), Data.getNumY ( ) );
+      origin.set ( mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[0], mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[1] );
+    }
+    
+    ColoredPictureType periodicityAxesImg ( Data.getNumX ( ), Data.getNumY ( ) );
+    periodicityAxesImg[0] = Data;
+    periodicityAxesImg[1] = Data;
+    periodicityAxesImg[2] = Data;
+    aol::Vec2<short> pos;
+    aol::Vector<short> axes;
+    if ( Axis == -1 ) {
+      axes.pushBack ( 0 );
+      axes.pushBack ( 1 );
+    } else axes.pushBack ( Axis );
+    for ( short k=0; k<axes.size ( ) ; ++k ) {
+      for ( short i=-Data.getNumX ( ); i<Data.getNumX ( ) ; ++i ) {
+        pos.set ( origin[0] + cos ( LatticeAnglesRadians[axes[k]] ) * i, origin[1] + sin ( LatticeAnglesRadians[axes[k]] ) * i );
+        if ( pos[0] >= 0 && pos[0] < Data.getNumX ( ) && pos[1] >= 0 && pos[1] < Data.getNumY ( ) ) {
+          periodicityAxesImg[0].set ( pos, 0 );
+          periodicityAxesImg[1].set ( pos, 0 );
+          periodicityAxesImg[2].set ( pos, Data.getMaxValue ( ) );
+        }
+      }
+    }
+    periodicityAxesImg.setOverflowHandling ( aol::CLIP_THEN_SCALE, Data.getMinValue ( ), Data.getMaxValue ( ) );
+    periodicityAxesImg.savePNG ( Path );
+  }
+  
+  void saveDataPeriodicPatternImg ( const char* Path, const PictureType &Data, const aol::MultiVector<RealType> &LatticeVectors,
+                                    const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ), const short SearchWindowSize = 1 ) const {
+    aol::Vec2<short> origin ( Origin );
+    if ( origin[0] < 0 || origin[0] >= Data.getNumX ( ) || origin[1] < 0 || origin[1] >= Data.getNumY ( ) ) {
+      qc::FastILexMapper<qc::QC_2D> mapper ( Data.getNumX ( ), Data.getNumY ( ) );
+      origin.set ( mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[0], mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[1] );
+    }
+    
+    const short searchWindowOffset = ( SearchWindowSize - 1 ) / 2;
+
+    ColoredPictureType periodicityAxesImg ( Data.getNumX ( ), Data.getNumY ( ) );
+    for ( short i=0; i<Data.getNumX ( ) ; ++i ) {
+      for ( short j=0; j<Data.getNumY ( ) ; ++j ) {
+        periodicityAxesImg[0].set ( i, j, Data.get ( i, j ) );
+        periodicityAxesImg[1].set ( i, j, Data.get ( i, j ) );
+        periodicityAxesImg[2].set ( i, j, Data.get ( i, j ) );
+      }
+    }
+    
+    aol::Vec2<short> pos1, pos2, pos3;
+    pos1.set ( origin );
+    for ( short i=-Data.getNumX ( ); i<Data.getNumX ( ) ; ++i ) {
+      pos1.set ( origin[0] + i * LatticeVectors[0][0], origin[1] + i * LatticeVectors[0][1] );
+      for ( short j=-Data.getNumX ( ); j<Data.getNumX ( ) ; ++j ) {
+        pos2.set ( pos1[0] + j * LatticeVectors[1][0], pos1[1] + j * LatticeVectors[1][1] );
+        for ( short dx=-searchWindowOffset; dx<=searchWindowOffset ; ++dx ) {
+          for ( short dy=-searchWindowOffset; dy<=searchWindowOffset ; ++dy ) {
+            pos3.set ( pos2[0] + dx, pos2[1] + dy );
+            if ( pos3[0] >= 0 && pos3[0] < Data.getNumX ( ) && pos3[1] >= 0 && pos3[1] < Data.getNumY ( ) ) {
+              periodicityAxesImg[0].set ( pos3, Data.getMaxValue ( ) );
+              periodicityAxesImg[1].set ( pos3, 0 );
+              periodicityAxesImg[2].set ( pos3, 0 );
+            }
+          }
+        }
+      }
+    }
+    periodicityAxesImg[0].set ( origin, 0 );
+    periodicityAxesImg[1].set ( origin, Data.getMaxValue ( ) );
+    periodicityAxesImg.setOverflowHandling ( aol::SCALE, 0, 255 );
+    periodicityAxesImg.savePNG ( Path );
+  }
+  
+  void saveIntensityPlotAlongPeriodicAxis ( const char* Path, const PictureType &Data, const aol::Vec2<RealType> &LatticeAnglesRadians,
+                                            const short Axis, const aol::Vec2<short> &Origin = aol::Vec2<short> ( -1, -1 ) ) const {
+    if ( Axis < 0 || Axis > 1 )
+      throw aol::Exception ( "Argument \"Axis\" has to be between 0 and 1!", __FILE__, __LINE__ );
+    
+    aol::Vec2<short> origin ( Origin );
+    if ( origin[0] < 0 || origin[0] >= Data.getNumX ( ) || origin[1] < 0 || origin[1] >= Data.getNumY ( ) ) {
+      qc::FastILexMapper<qc::QC_2D> mapper ( Data.getNumX ( ), Data.getNumY ( ) );
+      origin.set ( mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[0], mapper.splitGlobalIndex ( Data.getMaxIndexAndValue ( ).first )[1] );
+    }
+    
+    std::vector<std::pair<RealType, RealType> > intensities;
+    aol::Vec2<short> pos;
+    for ( short sign=-1; sign<=1 ; sign+=2 ) {
+      int i = ( sign == -1 ) ? 1 : 0;
+      pos.set ( origin[0], origin[1] );
+      while ( pos[0] >= 0 && pos[0] < Data.getNumX ( ) && pos[1] >= 0 && pos[1] < Data.getNumY ( ) ) {
+        intensities.insert ( ( sign == -1 ) ? intensities.begin ( ) : intensities.end ( ),
+                             std::pair<RealType, RealType> ( sign * i * aol::Vec2<RealType> ( cos ( LatticeAnglesRadians[Axis] ),
+                                                                                              sin ( LatticeAnglesRadians[Axis] ) ).norm ( ),
+                                                                                              Data.get ( pos ) ) );
+        ++i;
+        pos.set ( origin[0] + sign * cos ( LatticeAnglesRadians[Axis] ) * i, origin[1] + sign * sin ( LatticeAnglesRadians[Axis] ) * i );
+      }
+    }
+  
+    aol::Plotter<RealType> plotter;
+    plotter.set_outfile_base_name ( Path );
+    aol::PlotDataFileHandler<RealType> plotHandler;
+    plotHandler.generateFunctionPlot ( intensities );
+    plotter.addPlotCommandsFromHandler ( plotHandler );
+    plotter.genPlot( aol::GNUPLOT_PNG );
   }
   
   void setCtrlCHandler () const {

@@ -28,7 +28,7 @@ protected:
   std::vector<QPoint> _selectedFrameCorners;
   std::string _defaultSaveFormat;
   
-  const QString DEFAULT_DIR_KEY = "default_dir";
+  const QString DEFAULT_DIR_KEY;
   
   QLabel *_sbarFileName;
   QLabel *_sbarFramePosSize;
@@ -71,9 +71,8 @@ protected:
       refreshPixmap ( );
       if ( actionAutoContrast->isChecked() )
         on_actionEnhanceContrast_triggered();
+      emit imageLoaded ( );
     }
-    
-    emit imageLoaded ( );
   }
   
   virtual void refreshPixmap ( ) {
@@ -131,6 +130,7 @@ public:
     : _scaleExponent ( 0 ),
       _selectedFrameCorners ( 2 ),
       _defaultSaveFormat ( ".q2bz" ),
+      DEFAULT_DIR_KEY ( "default_dir" ),
       _sbarFileName ( new QLabel ),
       _sbarFramePosSize ( new QLabel ),
       _sbarMousePos ( new QLabel ),
@@ -403,7 +403,7 @@ protected slots:
       ss << ";;" << it->second << " (*" << it->first << ")";
     const QString path = QPreviousFolderFileDialog::getSaveFileName ( this, "Select destination",
                                                                       QString ( ),
-                                                                      tr ( ss.str ( ).c_str ( ) ) );
+                                                                      tr ( ss.str ( ).c_str ( ) ) );    
     const char* dest = path.toStdString ( ).c_str ( );
     
     if ( path.isEmpty() == false ) {

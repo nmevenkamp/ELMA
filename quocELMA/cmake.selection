@@ -1,0 +1,16 @@
+SET ( SELECTED_MODULES
+      modules/aol 
+      modules/quoc
+      
+      internal/projects/mevenkamp/modules
+)
+
+# projects that have their own CMakeLists.txt.
+SET ( SELECTED_PROJECTS )
+
+# projects that use CMakeLists.project.txt.
+SET ( SELECTED_STDPROJECTS
+      selfTest/aol
+      selfTest/quoc
+	  internal/projects/elma
+)

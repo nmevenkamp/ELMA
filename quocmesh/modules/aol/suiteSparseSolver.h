@@ -242,19 +242,30 @@ class UMFPACKBlockInverseOp :
   public aol::InverseOp<aol::MultiVector<RealType> > {
 
 private:
+// Only recent versions of SuiteSparse define SuiteSparse_long, but "long int" is not
+// what SuiteSparse is using as long data type on all platforms. If the types differ
+// we have to resort to SuiteSparse_long.
+#if defined(__MINGW32__)
+  typedef SuiteSparse_long SuiteSparseIntType;
+#else
+  typedef long int SuiteSparseIntType;
+#endif
+
   // the system matrix in umfpack format (number of rows and columns, indices and values of compressed column format)
-  long int _n;
-  aol::Vector<long int> _Ap, _Ai;
+  SuiteSparseIntType _n;
+  aol::Vector<SuiteSparseIntType> _Ap, _Ai;
   aol::Vector<RealType> _Ax;
   // umfpack control objects (the LU factors of the matrix, control and info variables)
   void *_umfpackNumeric;
   double _umfpackControl[UMFPACK_CONTROL];
   mutable double _umfpackInfo[UMFPACK_INFO];
+  bool _matrixSet;
 
 public:
   UMFPACKBlockInverseOp( const aol::BlockOpBase<RealType,MatrixType> &BlockMat ) :
     aol::InverseOp<aol::MultiVector<RealType> > (),
-    _umfpackNumeric( NULL ) {
+    _umfpackNumeric( NULL ),
+    _matrixSet( false ){
     // set desired parameters (currently only default parameters implemented)
     umfpack_dl_defaults( _umfpackControl );
 #ifdef DEBUG
@@ -269,7 +280,8 @@ public:
 
   UMFPACKBlockInverseOp() :
     aol::InverseOp<aol::MultiVector<RealType> > (),
-    _umfpackNumeric( NULL ) {
+    _umfpackNumeric( NULL ),
+    _matrixSet( false ) {
     // set desired parameters (currently only default parameters implemented)
     umfpack_dl_defaults( _umfpackControl );
 #ifdef DEBUG
@@ -290,20 +302,20 @@ public:
   //! \warning Do not call this method with matrices without entries!
   inline void setMatrix ( const aol::BlockOpBase<RealType,MatrixType> &BlockMat ) {
     // read in all values and put them into the triplet vectors
-    aol::Vector<long int> rowInd, colInd;
+    aol::Vector<SuiteSparseIntType> rowInd, colInd;
     aol::Vector<RealType> val;
 
-    long int totalRow = 0;
+    SuiteSparseIntType totalRow = 0;
     for ( int row = 0; row < BlockMat.getNumRows(); row++ ) {
       for ( int localRow = 0; localRow < BlockMat.getReference( row, 0 ).getNumRows(); localRow++ ) {
-        long int colOffset = 0;
+        SuiteSparseIntType colOffset = 0;
         for ( int col = 0; col < BlockMat.getNumCols(); col++ ) {
           vector<typename aol::Row<RealType>::RowEntry > matRow;
           BlockMat.getReference( row, col ).makeRowEntries( matRow, localRow );
           for ( typename vector<typename aol::Row<RealType>::RowEntry >::iterator it = matRow.begin(); it != matRow.end(); ++it ) {
             rowInd.pushBack( totalRow );
             // this cast should always be possible!
-            long int totalCol = colOffset + static_cast<long int>(it->col);
+            SuiteSparseIntType totalCol = colOffset + static_cast<SuiteSparseIntType>(it->col);
             colInd.pushBack( totalCol );
             val.pushBack( it->value );
           }
@@ -314,10 +326,10 @@ public:
     }
 
     // convert triplet format into required format
-    _n = static_cast<long int>( aol::Max( rowInd.getMaxValue(), colInd.getMaxValue() ) + 1 );
+    _n = static_cast<SuiteSparseIntType>( aol::Max( rowInd.getMaxValue(), colInd.getMaxValue() ) + 1 );
     _Ap.resize( _n + 1 );
-    _Ai.resize( static_cast<long int>(val.size()) );
-    _Ax.resize( static_cast<long int>(val.size()) );
+    _Ai.resize( static_cast<SuiteSparseIntType>(val.size()) );
+    _Ax.resize( static_cast<SuiteSparseIntType>(val.size()) );
     umfpack_dl_triplet_to_col( _n, _n, val.size(), rowInd.getData(), colInd.getData(), val.getData(), _Ap.getData(), _Ai.getData(), _Ax.getData(), NULL );
 
     // perform symbolic and numeric factorization
@@ -343,6 +355,7 @@ public:
 
     // free symbolic factorization
     umfpack_dl_free_symbolic( &umfpackSymbolic );
+    _matrixSet = true;
   }
 
   // standard applyAdd
@@ -353,6 +366,10 @@ public:
   }
 
   virtual void apply ( const aol::MultiVector<RealType> &Arg, aol::MultiVector<RealType> &Dest ) const {
+    
+    if( !_matrixSet )
+      throw aol::Exception( "UMFPACKBlockInverseOp::apply(): matrix not set." );
+    
     // transform rhs into appropriate format
     aol::Vector<RealType> rhs( Arg.getTotalSize () ), sol( Dest.getTotalSize () );
     rhs.copyUnblockedFrom( Arg );
@@ -364,6 +381,10 @@ public:
     umfpack_dl_report_info (_umfpackControl, _umfpackInfo) ;
 
     Dest.copySplitFrom( sol );
+  }
+  
+  bool isMatrixSet() const {
+    return _matrixSet;
   }
 };
 /**
@@ -581,8 +602,11 @@ public:
     rhs.copyUnblockedFrom ( arg );
 
     // solve and copy solution into result vector
-    umfpack_di_solve( UMFPACK_A, _cscMat.getColumnPointerReference ().getData (), _cscMat.getRowIndexReference ().getData (),
+    int status = umfpack_di_solve( UMFPACK_A, _cscMat.getColumnPointerReference ().getData (), _cscMat.getRowIndexReference ().getData (),
         _cscMat.getValueReference ().getData (), sol.getData(), rhs.getData(), _umfpackNumeric, _umfpackControl, _umfpackInfo );
+
+    if ( status != UMFPACK_OK )
+      cerr << aol::color::red << "umfpack_di_solve failed (" << status << ")" << aol::color::reset << endl;
 
     dest.copySplitFrom ( sol );
   }

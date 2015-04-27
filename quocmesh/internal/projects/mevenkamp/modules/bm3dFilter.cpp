@@ -180,7 +180,7 @@ void BM3DFilter<_RealType, _PictureType, FilterTrait>::blockMatching ( const Opt
   _numMatchedBlocks.set ( XRef, Nz );
   
   // If Nz > _N2 or Nz is not a power of 2 drop coordinates with highest distances until |Sx| = Nz = _N2 or |Sx| = Nz is a power of 2
-  short finalNz = finalNz = aol::Min<int> ( aol::Pow ( 2, floor ( log2 ( Nz ) ) ), _N2 );
+  short finalNz = aol::Min<int> ( aol::Pow ( 2, floor ( log2 ( Nz ) ) ), _N2 );
   if ( Nz > finalNz ){
     aol::Vec2<short> tmpPos;
     RealType tmpDist;

@@ -182,13 +182,14 @@ public:
 
   void apply ( const MatrixType & arg, MultiVector<RealType> & dest ) const {
     int n = arg.getNumCols();
-    dest.reallocate ( _numberEigenvalues + 1, n );
+    int nEvals = aol::Max<int> ( _numberEigenvalues, 1 );
+    dest.reallocate ( nEvals + 1, n );
     Vector<RealType> newVec ( n ), old ( n ), deflationTmp ( n ), tmp ( n );
     newVec.setAll ( 1.0 );
     old.setAll ( 1.0 );
     ProgressBar<> pb ( "Computing eigenvalues " );
-    pb.start ( _numberEigenvalues );
-    for ( int i = 0; i < _numberEigenvalues; i++, pb++ ) {
+    if ( _numberEigenvalues > 0 ) pb.start ( _numberEigenvalues );
+    for ( int i = 0; i < nEvals; i++ ) {
       RealType res = 1.0;
       while ( res > 1e-12 ) {
         arg.apply ( old, newVec );
@@ -214,12 +215,28 @@ public:
       dest[0][i] = newVec.dotProduct ( old );
       dest[i+1] = newVec;
       
-      if ( _relativeAccuracy > 0 && aol::Abs<RealType> ( dest[0][i] / dest[0][0] ) < _relativeAccuracy ) {
+      if ( _numberEigenvalues == 0 ) {
+        RealType error = _sumEvals;
+        std::cerr << "sumEval=" << _sumEvals << std::endl;
+        std::cerr << dest[0] << std::endl;
+        for ( int j=0; j<=i ; ++j )
+          error -= dest[0][j];
+        
+        std::cerr << error << " > " << _threshold << std::endl;
+        
+        if ( error < _threshold ) break;
+        else {
+          ++nEvals;
+          dest.resize ( nEvals + 1, n );
+        }
+      } else if ( _relativeAccuracy > 0 && aol::Abs<RealType> ( dest[0][i] / dest[0][0] ) < _relativeAccuracy ) {
         dest.resize ( i+1, n );
         break;
       }
+      
+      if ( _numberEigenvalues > 0 ) pb++;
     }
-    pb.finish();
+    if ( _numberEigenvalues > 0 ) pb.finish();
   }
 
   void setNumberEigenvalues ( int numberEigenvalues ) {
@@ -229,11 +246,17 @@ public:
   void setRelativeAccuracy ( RealType relativeAccuracy ) {
     _relativeAccuracy = relativeAccuracy;
   }
+  
+  void setThreshold ( const RealType Threshold, const RealType SumEvals ) {
+    _threshold = Threshold;
+    _sumEvals = SumEvals;
+  }
 
 protected:
 
   int _numberEigenvalues;
   RealType _relativeAccuracy;
+  RealType _threshold, _sumEvals;
 };
 
 

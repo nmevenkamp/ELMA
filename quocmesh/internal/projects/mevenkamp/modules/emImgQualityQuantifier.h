@@ -9,7 +9,11 @@
 // quocmesh
 #include "atomFinder.h"
 
-template <typename _RealType, typename _MatrixType, typename _LinearRegressionType, typename _ScalarPictureType, typename _ColoredPictureType>
+template <typename _RealType,
+          typename _MatrixType = aol::FullMatrix<_RealType>,
+          typename _LinearRegressionType = LinearRegressionQR<_RealType>,
+          typename _ScalarPictureType = qc::ScalarArray<_RealType, qc::QC_2D>,
+          typename _ColoredPictureType = qc::MultiArray<_RealType, qc::QC_2D, 3> >
 class EMImgQualityQuantifier {
   typedef _RealType RealType;
   typedef _MatrixType MatrixType;
@@ -37,9 +41,10 @@ public:
   
   const aol::Vec2<RealType> getPrecisions ( const aol::MultiVector<RealType> &Centers,
                                             const RealType PeriodX, const RealType PeriodY, const RealType PeriodDelta,
-                                            const RealType AngleX, const RealType AngleY, const RealType AngleDelta ) const {
+                                            const RealType AngleX, const RealType AngleY, const RealType AngleDelta,
+                                            const char *GnuplotXMatches = NULL, const char *GnuplotYMatches = NULL ) const {
     aol::MultiVector<RealType> distances;
-    getInterAtomicDistances ( distances, Centers, PeriodX, PeriodY, PeriodDelta, AngleX, AngleY, AngleDelta );
+    getInterAtomicDistances ( distances, Centers, PeriodX, PeriodY, PeriodDelta, AngleX, AngleY, AngleDelta, GnuplotXMatches, GnuplotYMatches );
     return getPrecisions ( distances );
   }
   
@@ -52,10 +57,11 @@ public:
     return getPrecisions ( centers, PeriodX, PeriodY, PeriodDelta, AngleX, AngleY, AngleDelta );
   }
   
-  const aol::Vec2<RealType> getPrecisions ( const aol::MultiVector<RealType> &Centers, const aol::ParameterParser &Parser ) const {
+  const aol::Vec2<RealType> getPrecisions ( const aol::MultiVector<RealType> &Centers, const aol::ParameterParser &Parser,
+                                            const char *GnuplotXMatches = NULL, const char *GnuplotYMatches = NULL ) const {
     RealType periodX, periodY, periodDelta, angleX, angleY, angleDelta;
     readPrecisionAnalysisParameters ( Parser, periodX, periodY, periodDelta, angleX, angleY, angleDelta );
-    return getPrecisions ( Centers, periodX, periodY, periodDelta, angleX, angleY, angleDelta );
+    return getPrecisions ( Centers, periodX, periodY, periodDelta, angleX, angleY, angleDelta, GnuplotXMatches, GnuplotYMatches );
   }
   
   const aol::Vec2<RealType> getPrecisions ( const std::string &CentersCSVSrcPath, const aol::ParameterParser &Parser ) const {
@@ -291,7 +297,8 @@ private:
   
   void getInterAtomicDistances ( aol::MultiVector<RealType> &Distances, const aol::MultiVector<RealType> &Centers,
                                 const RealType PeriodX, const RealType PeriodY, const RealType PeriodDelta,
-                                const RealType AngleX, const RealType AngleY, const RealType AngleDelta ) const;
+                                const RealType AngleX, const RealType AngleY, const RealType AngleDelta,
+                                const char *GnuplotXMatches = NULL, const char *GnuplotYMatches = NULL ) const;
   
   void getCorrespondences ( aol::Vector<short> &Correspondences, const aol::MultiVector<RealType> &CentersRef, const aol::MultiVector<RealType> &CentersEstimate ) const;
 };

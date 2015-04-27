@@ -886,6 +886,11 @@ public:
     }
   }
 
+  //! change makeRowEntriesWarningPrinted
+  static void setMakeRowEntriesWarningPrinted ( const bool Arg ) {
+    makeRowEntriesWarningPrinted = Arg;
+  }
+
   //! Reads a block from the full matrix
   void getBlock ( int r, int c, FullMatrix<_DataType>& block ) const;
 

@@ -5,6 +5,9 @@
 #include <ctrlCCatcher.h>
 #include <ChanVese.h>
 #include <quocTimestepSaver.h>
+#include <clustering.h>
+#include <eigenvectors.h>
+#include <QRDecomposition.h>
 
 namespace qc {
 
@@ -382,6 +385,7 @@ public:
 protected:
   RealType _tau;
   const ArrayType* _pIndicator[2];
+  const int _numSegments;
   virtual void prepareIndicatorFunctionGeneration ( ) const {}
   virtual void generateIndicatorFunction ( const int IndicatorNumber, ArrayType &IndicatorFunction ) const {
     if ( _pIndicator[IndicatorNumber] == NULL )
@@ -397,7 +401,7 @@ public:
   TwoPhaseMSSegmentor ( const typename ConfiguratorType::InitType &Initializer,
                         const RealType Gamma )
     : TVAlgorithmBase<ConfiguratorType> ( Initializer, Gamma, 1000, 0.01 ),
-      _tau ( 0.25 ) {
+      _tau ( 0.25 ), _numSegments ( 2 ) {
     _pIndicator[0] = NULL;
     _pIndicator[1] = NULL;
   }
@@ -522,8 +526,96 @@ protected:
   const ArrayType & _edgeWeight;
 };
 
+  
 /**
- * Piecewise constant Mumford Shah image segmentation with support for scalar
+ * This struct + static function construction is a workaround to C++ limitations.
+ * It is used to allow template specialization, in this particular case for the ImageDimension template parameter
+ *
+ * \author Mevenkamp
+ */
+template <typename ConfiguratorType, int ImageDimension>
+struct doUpdateGrayValues {
+  typedef typename ConfiguratorType::RealType RealType;
+  
+  static void apply ( const aol::Vector<RealType> &CurrentSegmentation,
+                      const typename ConfiguratorType::InitType &Grid, const aol::MultiVector<RealType> &ImageMVec,
+                      aol::MultiVector<RealType> &MeanValues,
+                      bool QuietMode ) {
+    aol::IdentityFunction<RealType>  heavisideFunction;
+    aol::ClassicalChanVeseMeanValueUpdater<ConfiguratorType, aol::IdentityFunction<RealType>, 1, ImageDimension> grayValueUpdater ( Grid, heavisideFunction, ImageMVec );
+    
+    aol::MultiVector<RealType> levelsetFunctions ( 1, CurrentSegmentation.size() );
+    levelsetFunctions[0] = CurrentSegmentation;
+    
+    // The "shift" in generateIndicatorFunction causes a severe loss of contrast
+    // in CurrentSegmentation (according to the theory the 0.5 levelset that we are
+    // interested in should be unaffected though). To properly calculate the gray
+    // values we need to account for this here: The values start in [0,1].
+    // First, shift to [-0.5,0.5]
+    levelsetFunctions.addToAll ( -0.5 );
+    // Rescale such that -0.5 and/or 0.5 is attained (increasing contrast but leaving 0 unaffected).
+    levelsetFunctions /= 2*levelsetFunctions.getMaxAbsValue();
+    // Finally, shift back to [0,1].
+    levelsetFunctions.addToAll ( 0.5 );
+    
+    // This is an alternative to the code above (neither always better nor always worse).
+    //levelsetFunctions.threshold( 0.5, 0., 1. );
+    
+    aol::MultiVector<RealType> newGrayValuesMVec ( 2, ImageDimension );
+    
+    grayValueUpdater.update( levelsetFunctions, newGrayValuesMVec );
+    
+    for ( int j = 0; j < ImageDimension; j++ ) {
+      MeanValues[0][j] = newGrayValuesMVec[0][j];
+      MeanValues[1][j] = newGrayValuesMVec[1][j];
+    }
+    if ( !QuietMode ) cerr << MeanValues << endl;
+  }
+};
+
+/**
+ * This struct + static function construction is a workaround to C++ limitations.
+ * It is used here to specialize the ImageDimension template parameter
+ *
+ * \author Mevenkamp
+ */
+template <typename ConfiguratorType>
+struct doUpdateGrayValues<ConfiguratorType, 0> {
+  typedef typename ConfiguratorType::RealType RealType;
+  
+  static void apply ( const aol::Vector<RealType> &CurrentSegmentation,
+                      const typename ConfiguratorType::InitType &/*Grid*/, const aol::MultiVector<RealType> &ImageMVec,
+                      aol::MultiVector<RealType> &MeanValues,
+                      bool QuietMode ) {
+    aol::Vector<RealType> u ( CurrentSegmentation );
+    u.addToAll ( -0.5 );
+    u /= 2 * u.getMaxAbsValue ( );
+    u.addToAll ( 0.5 );
+    
+    const int imageDim = ImageMVec.numComponents ( );
+    const int numPixels = ImageMVec[0].size ( );
+    
+    MeanValues.setZero ( );
+    RealType c1Norm = 0, c2Norm = 0, uSqr, uMinusOneSqr;
+    for ( int i = 0; i < numPixels ; ++i ) {
+      uSqr = aol::Sqr<RealType> ( u[i] );
+      uMinusOneSqr = aol::Sqr<RealType> ( 1 - u[i] );
+      c1Norm += uSqr;
+      c2Norm += uMinusOneSqr;
+      for ( int j = 0; j < imageDim ; ++j ) {
+        MeanValues[0][j] += uSqr * ImageMVec[j][i];
+        MeanValues[1][j] += uMinusOneSqr * ImageMVec[j][i];
+      }
+    }
+    if ( c1Norm > 0 ) MeanValues[0] /= c1Norm;
+    if ( c2Norm > 0 ) MeanValues[1] /= c2Norm;
+    
+    if ( !QuietMode ) cerr << MeanValues << endl;
+  }
+};
+  
+/**
+ * Piecewise constant two-phase Mumford Shah image segmentation with support for scalar
  * and vector values images, e.g. color images or vector fields.
  *
  * \author Berkels
@@ -534,9 +626,9 @@ public:
   typedef typename ConfiguratorType::RealType RealType;
   typedef typename ConfiguratorType::ArrayType ArrayType;
 protected:
-  const aol::MultiVector<RealType> &_imageMVec;
+  aol::MultiVector<RealType> &_imageMVec;
   aol::MultiVector<RealType> _meanValues;
-private:
+protected:
   int _outerIterations;
   aol::ProgressBar<> *_progressBar;
   bool _catchCtrlC;
@@ -545,14 +637,15 @@ public:
 
   PiecewiseConstantTwoPhaseMSSegmentor ( const typename ConfiguratorType::InitType &Initializer,
                                          const RealType Gamma,
-                                         aol::MultiVector<RealType> &ImageMVec )
+                                         aol::MultiVector<RealType> &ImageMVec,
+                                         const bool InitializeGrayValues = true )
     : BaseClass ( Initializer, Gamma ),
       _imageMVec ( ImageMVec ),
       _meanValues ( 2, ImageMVec.numComponents ( ) ),
       _outerIterations ( 5 ),
       _catchCtrlC ( false ) {
-    _meanValues[0][0] = 0.;
-    _meanValues[1][0] = 1.;
+    if ( InitializeGrayValues )
+      initializeGrayValues ( );
   }
 
   virtual ~PiecewiseConstantTwoPhaseMSSegmentor() {}
@@ -573,44 +666,28 @@ protected:
       IndicatorFunction[i] = indicator + shift;
     }
   }
-  virtual void updateGrayValues ( const aol::Vector<RealType> &CurrentSegmentation ) {
-    aol::IdentityFunction<RealType>  heavisideFunction;
-    aol::ClassicalChanVeseMeanValueUpdater<ConfiguratorType, aol::IdentityFunction<RealType>, 1, ImageDimension> grayValueUpdater
-      ( this->_grid, heavisideFunction, _imageMVec );
-
-    aol::MultiVector<RealType> levelsetFunctions ( 1, CurrentSegmentation.size() );
-    levelsetFunctions[0] = CurrentSegmentation;
-
-    // The "shift" in generateIndicatorFunction causes a severe loss of contrast
-    // in CurrentSegmentation (according to the theory the 0.5 levelset that we are
-    // interested in should be unaffected though). To properly calculate the gray
-    // values we need to account for this here: The values start in [0,1].
-    // First, shift to [-0.5,0.5]
-    levelsetFunctions.addToAll ( -0.5 );
-    // Rescale such that -0.5 and/or 0.5 is attained (increasing contrast but leaving 0 unaffected).
-    levelsetFunctions /= 2*levelsetFunctions.getMaxAbsValue();
-    // Finally, shift back to [0,1].
-    levelsetFunctions.addToAll ( 0.5 );
-
-    // This is an alternative to the code above (neither always better nor always worse).
-    //levelsetFunctions.threshold( 0.5, 0., 1. );
-
-    aol::MultiVector<RealType> newGrayValuesMVec ( 2, ImageDimension );
-
-    grayValueUpdater.update( levelsetFunctions, newGrayValuesMVec );
-    
-    for ( int j = 0; j < ImageDimension; j++ ) {
-      _meanValues[0][j] = newGrayValuesMVec[0][j];
-      _meanValues[1][j] = newGrayValuesMVec[1][j];
+  
+  virtual void initializeGrayValues ( ) {
+    KMeansClusterer<RealType> kMeansClusterer;
+    aol::MultiVector<RealType> clusters;
+    kMeansClusterer.apply ( _imageMVec, clusters, 2 );
+    const int imageDim = _imageMVec.numComponents ( );
+    for ( int j=0; j<imageDim ; ++j ) {
+      _meanValues[0][j] = clusters[j][0];
+      _meanValues[1][j] = clusters[j][1];
     }
-    if ( !this->_quietMode ) cerr << _meanValues << endl;
+    if ( !this->_quietMode ) cerr << this->_meanValues << endl;
+  }
+  
+  virtual void updateGrayValues ( const ArrayType &Segmentation ) {
+    doUpdateGrayValues<ConfiguratorType, ImageDimension>::apply ( Segmentation, this->_grid, _imageMVec, _meanValues, this->_quietMode );
   }
 public:
   void segmentAndAdjustGrayValues ( ArrayType &Segmentation, qc::MultiArray<RealType, ConfiguratorType::Dim> * PDual = NULL ) {
     setCtrlCHandler ( );
     for ( int i = 0; i < _outerIterations && !wantsInterrupt ( ) ; ++i ) {
       this->segment ( Segmentation, PDual );
-      this->updateGrayValues ( Segmentation );
+      updateGrayValues ( Segmentation );
     }
     unsetCtrlCHandler ( );
   }
@@ -622,7 +699,306 @@ public:
   aol::MultiVector<RealType>& getMeanValuesReference () {
     return _meanValues;
   }
+  
+  void setMeanValues ( const aol::Vector<int> &Indices ) {
+    for ( int l=0; l<Indices.size ( ) ; ++l )
+      for ( int j=0; j<_imageMVec.numComponents ( ) ; ++j )
+        _meanValues[l][j] = _imageMVec[j][Indices[l]];
+  }
+  
+  void setMeanValuesFromInitialSegmentation ( const ArrayType &InitialSegmentation ) {
+    updateGrayValues ( InitialSegmentation );
+  }
+  
+  int getNumSegments ( ) const {
+    return this->_numSegments;
+  }
+  
+  void setNumSegments ( const int /*NumSegments*/ ) {
+  }
 
+  void setOuterIterations ( const int OuterIterations ) {
+    _outerIterations = OuterIterations;
+  }
+  
+  void setCatchCtrlC ( bool catchCtrlC ) {
+    _catchCtrlC = catchCtrlC;
+  }
+protected:
+  void setCtrlCHandler () const {
+    if (_catchCtrlC)
+      _previousCtrlCHandler = signal ( InterruptSignal, aol::ctrlCHandler );
+  }
+  
+  void unsetCtrlCHandler () const {
+    if (_catchCtrlC)
+      signal ( InterruptSignal, _previousCtrlCHandler );
+  }
+  
+  bool wantsInterrupt() const {
+    if (!_catchCtrlC || !aol::getCtrlCState())
+      return false;
+    else
+      return true;
+  }
+};
+  
+  
+  
+/**
+ * \brief Abstract base class for multi phase Mumford Shah segmentation.
+ *
+ * Minimizes the multi-phase Mumford-Shah model
+ * \f[ \min_{u} \gamma\int_\Omega g|\nabla u|dx + \sum_{l=1}^k \int_\Omega f_l u_l dx, \f]
+ * where \f$ f_1,\dots,f_n \f$ are indicator functions for the different regions to be segmented.
+ *
+ * The interface function generateIndicatorFunctions, in which \f$ f_1,\dots,f_n \f$ are
+ * defined, needs to be implemented in the derived class.
+ *
+ * \author Mevenkamp
+ */
+template <typename ConfiguratorType>
+class MultiPhaseMSSegmentor : public TVAlgorithmBase<ConfiguratorType> {
+public:
+  typedef typename ConfiguratorType::RealType RealType;
+  typedef typename ConfiguratorType::ArrayType ArrayType;
+protected:
+  int _numSegments;
+  RealType _tau;
+  std::vector<ArrayType*> _pIndicators;
+  virtual void prepareIndicatorFunctionGeneration ( ) const {}
+  virtual void generateIndicatorFunctions ( aol::VectorContainer<ArrayType> &IndicatorFunctions ) const {
+    if ( IndicatorFunctions.size ( ) != _numSegments )
+      throw aol::Exception ( "Number of passed indicator functions does not match number of segments!" , __FILE__, __LINE__ );
+    
+    for ( int l=0; l<_numSegments ; ++l ) {
+      if ( _pIndicators[l] == NULL )
+        throw ( aol::Exception ( aol::strprintf ( "Indicator %d not set and generateIndicatorFunction() not overloaded.", l ), __FILE__, __LINE__ ) );
+  
+      IndicatorFunctions[l] = *( _pIndicators[l] );
+    }
+  }
+  
+public:
+  MultiPhaseMSSegmentor ( const typename ConfiguratorType::InitType &Initializer,
+                          const RealType Gamma,
+                          const int NumSegments = 0 )
+    : TVAlgorithmBase<ConfiguratorType> ( Initializer, Gamma, 1000, 0.01 ),
+      _numSegments ( NumSegments ),
+      _tau ( 0.25 ) {
+    _pIndicators.clear ( );
+    _pIndicators.resize ( NumSegments, NULL );
+  }
+  
+  virtual ~MultiPhaseMSSegmentor () {}
+  
+  void calcPrimalFromDual ( const aol::VectorContainer<qc::MultiArray<RealType, ConfiguratorType::Dim> > &/*Dual*/,
+                            aol::VectorContainer<ArrayType> &/*Primal*/,
+                            const aol::VectorContainer<ArrayType> &/*Indicators*/ ) const {
+    throw aol::UnimplementedCodeException( "Not implemented", __FILE__, __LINE__ );
+  }
+  
+  void segment ( aol::VectorContainer<ArrayType> &Segmentation, aol::VectorContainer<qc::MultiArray<RealType, ConfiguratorType::Dim> > * PDual = NULL ) const {
+    prepareIndicatorFunctionGeneration ( );
+    doSegment ( Segmentation, PDual );
+  }
+  
+  void setNumSegments ( const int NumSegments ) {
+    _numSegments = NumSegments;
+  }
+private:
+  //! Can assume that prepareIndicatorFunctionGeneration ( ) has just been called.
+  virtual void doSegment ( aol::VectorContainer<ArrayType> &/*Segmentation*/, aol::VectorContainer<qc::MultiArray<RealType, ConfiguratorType::Dim> > */*PDual*/ ) const {
+    throw aol::UnimplementedCodeException( "Not implemented", __FILE__, __LINE__ );
+  }
+  
+public:
+  void setTau( const RealType Tau ) {
+    _tau = Tau;
+  }
+  
+  void setIndicatorReference ( const int IndicatorNumber, const ArrayType &IndicatorFunction ) {
+    _pIndicators[IndicatorNumber] = &IndicatorFunction;
+  }
+};
+  
+/**
+ * Piecewise constant multi-phase Mumford Shah image segmentation with support for scalar
+ * and vector values images, e.g. color images or vector fields.
+ *
+ * \author Mevenkamp
+ */
+template <typename ConfiguratorType, typename BaseClass = MultiPhaseMSSegmentor<ConfiguratorType> >
+class PiecewiseConstantMultiPhaseMSSegmentor : public BaseClass {
+public:
+  typedef typename ConfiguratorType::RealType RealType;
+  typedef aol::VectorContainer<typename ConfiguratorType::ArrayType> ArrayType;
+protected:
+  aol::MultiVector<RealType> &_imageMVec;
+  aol::MultiVector<RealType> _meanValues;
+protected:
+  int _outerIterations;
+  aol::ProgressBar<> *_progressBar;
+  bool _catchCtrlC;
+  mutable sigfunc _previousCtrlCHandler;
+public:
+  
+  PiecewiseConstantMultiPhaseMSSegmentor ( const typename ConfiguratorType::InitType &Initializer,
+                                           const RealType Gamma,
+                                           aol::MultiVector<RealType> &ImageMVec,
+                                           const bool InitializeGrayValues = true,
+                                           const int NumSegments = 0 )
+    : BaseClass ( Initializer, Gamma, NumSegments ),
+      _imageMVec ( ImageMVec ),
+      _meanValues ( NumSegments, ImageMVec.numComponents ( ) ),
+      _outerIterations ( 1 ),
+      _catchCtrlC ( false ) {
+    if ( InitializeGrayValues )
+      initializeGrayValues ( );
+  }
+  
+  virtual ~PiecewiseConstantMultiPhaseMSSegmentor() {}
+  
+protected:
+  virtual void generateIndicatorFunctions ( ArrayType &IndicatorFunctions ) const {
+    if ( IndicatorFunctions.size ( ) != this->_numSegments )
+      throw aol::Exception ( "Number of passed indicator functions does not match number of segments!", __FILE__, __LINE__ );
+    
+    const int imageDim = _imageMVec.numComponents ( );
+    for ( int l = 0; l < this->_numSegments ; ++l ) {
+      for ( int i = 0; i < IndicatorFunctions[l].size(); ++i ) {
+        RealType indicator = 0.;
+        for ( int j = 0; j < imageDim; j++ )
+          indicator += aol::Sqr( _imageMVec[j][i] - _meanValues[l][j] );
+        IndicatorFunctions[l][i] = indicator;
+      }
+    }
+  }
+  virtual void initializeGrayValues ( ) {
+    KMeansClusterer<RealType> kMeansClusterer;
+    aol::MultiVector<RealType> clusters;
+    kMeansClusterer.applyMultipleRNG ( _imageMVec, clusters, this->_numSegments );
+    const int imageDim = _imageMVec.numComponents ( );
+    for ( int l=0; l<this->_numSegments ; ++l )
+      for ( int j=0; j<imageDim ; ++j )
+        this->_meanValues[l][j] = clusters[j][l];
+    if ( !this->_quietMode ) cerr << this->_meanValues << endl;
+  }
+  virtual void updateGrayValues ( const ArrayType &CurrentSegmentation ) {
+    const int imageDim = _imageMVec.numComponents ( );
+    const int numPixels = _imageMVec[0].size ( );
+    
+    _meanValues.setZero ( );
+    aol::Vector<RealType> cNorms ( this->_numSegments );
+    for ( int l = 0; l < this->_numSegments ; ++l ) {
+      for ( int i = 0; i < numPixels ; ++i ) {
+        cNorms[l] += CurrentSegmentation[l][i];
+        for ( int j = 0; j < imageDim ; ++j )
+          this->_meanValues[l][j] += CurrentSegmentation[l][i] * _imageMVec[j][i];
+      }
+      if ( cNorms[l] > 0 ) _meanValues[l] /= cNorms[l];
+    }
+    
+    if ( !this->_quietMode ) cerr << _meanValues << endl;
+  }
+  virtual void initializeSegmentation ( ArrayType &Segmentation ) const {
+    // Best regularity, very low fidelity
+    // Initialize all soft segmentations constant with equal values everywhere
+//    Segmentation.setAll ( 1.0 / static_cast<RealType> ( Segmentation.size ( ) ) );
+    
+    // Best fidelity, very irregular
+    // In each pixel, set the soft segmentation with index of the mean value nearest to the input image to one and all others to zero
+    Segmentation.setAll ( 0.0 );
+    const int imageDim = _imageMVec.numComponents ( );
+    const int numPixels = _imageMVec[0].size ( );
+    for ( int i=0; i<numPixels ; ++i ) {
+      RealType minDist = aol::NumberTrait<RealType>::Inf;
+      int nearestMeanIdx = 0;
+      for ( int l=0; l<Segmentation.size ( ) ; ++l ) {
+        RealType dist = 0;
+        for ( int j=0; j<imageDim ; ++j )
+          dist += aol::Sqr<RealType> ( _imageMVec[j][i] - _meanValues[l][j] );
+        if ( dist < minDist ) {
+          minDist = dist;
+          nearestMeanIdx = l;
+        }
+      }
+      Segmentation[nearestMeanIdx][i] = 1.0;
+    }
+  }
+public:
+  void segmentAndAdjustGrayValues ( ArrayType &Segmentation, aol::VectorContainer<qc::MultiArray<RealType, ConfiguratorType::Dim> > * PDual = NULL ) {
+    initializeSegmentation ( Segmentation );
+    setCtrlCHandler ( );
+    for ( int i = 0; i < _outerIterations && !wantsInterrupt ( ) ; ++i ) {
+      this->segment ( Segmentation, PDual );
+      this->updateGrayValues ( Segmentation );
+    }
+    unsetCtrlCHandler ( );
+  }
+  
+  void getHardSegmentation ( qc::ScalarArray<int, ConfiguratorType::Dim> &HardSegmentation, const ArrayType &SoftSegmentation ) const {
+    if ( SoftSegmentation.size ( ) == 0 || SoftSegmentation[0].size ( ) != HardSegmentation.size ( ) )
+      throw aol::Exception ( "Dimensions of components of soft segmentation and hard segmentation do not match!", __FILE__, __LINE__ );
+    
+    for ( int k=0; k<SoftSegmentation[0].size ( ) ; ++k ) {
+      int maxInd = 0;
+      for ( int l=1; l<SoftSegmentation.size ( ) ; ++l ) {
+        if ( SoftSegmentation[l][k] > SoftSegmentation[maxInd][k] )
+          maxInd = l;
+      }
+      HardSegmentation[k] = maxInd;
+    }
+  }
+  
+  void getMeanValues ( aol::MultiVector<RealType> &MeanValues, const qc::ScalarArray<int, ConfiguratorType::Dim> &HardSegmentation ) const {
+    const int imageDim = this->_imageMVec.numComponents ( );
+    const int numPixels = this->_imageMVec[0].size ( );
+    const int numSegments = HardSegmentation.getMaxValue ( ) + 1;
+    
+    if ( HardSegmentation.size ( ) != numPixels ) throw aol::Exception ( "Dimension of hard segmentation does not match initial input image!", __FILE__, __LINE__ );
+    
+    aol::MultiVector<RealType> means ( numSegments, _imageMVec.numComponents ( ) );
+    aol::Vector<int> numPixelsPerSegment ( numSegments );
+    for ( int i = 0; i < numPixels ; ++i ) {
+      for ( int j = 0; j < imageDim; j++ )
+        means[HardSegmentation[i]][j] += _imageMVec[j][i];
+      ++numPixelsPerSegment[HardSegmentation[i]];
+    }
+    for ( int l = 0; l < numSegments ; ++l )
+      means[l] /= static_cast<RealType> ( numPixelsPerSegment[l] );
+    for ( int i = 0; i < numPixels ; ++i )
+      for ( int j = 0; j < imageDim ; ++j )
+        MeanValues[j][i] = means[HardSegmentation[i]][j];
+  }
+  
+  const aol::MultiVector<RealType>& getMeanValuesReference () const {
+    return _meanValues;
+  }
+  
+  aol::MultiVector<RealType>& getMeanValuesReference () {
+    return _meanValues;
+  }
+  
+  void setMeanValues ( const aol::Vector<int> &Indices ) {
+    for ( int l=0; l<Indices.size ( ) ; ++l )
+      for ( int j=0; j<_imageMVec.numComponents ( ) ; ++j )
+        _meanValues[l][j] = _imageMVec[j][Indices[l]];
+  }
+  
+  void setMeanValuesFromInitialSegmentation ( const ArrayType &InitialSegmentation ) {
+    updateGrayValues ( InitialSegmentation );
+  }
+  
+  int getNumSegments ( ) const {
+    return this->_numSegments;
+  }
+  
+  void setNumSegments ( const int NumSegments ) {
+    this->_numSegments = NumSegments;
+    this->_meanValues.resize ( NumSegments, this->_imageMVec.numComponents ( ) );
+  }
+  
   void setOuterIterations ( const int OuterIterations ) {
     _outerIterations = OuterIterations;
   }

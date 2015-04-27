@@ -4,12 +4,20 @@ template <typename _RealType, typename _MatrixType, typename _LinearRegressionTy
 void EMImgQualityQuantifier<_RealType, _MatrixType, _LinearRegressionType, _ScalarPictureType,
                               _ColoredPictureType>::getInterAtomicDistances ( aol::MultiVector<RealType> &Distances, const aol::MultiVector<RealType> &Centers,
                                                                               const RealType PeriodX, const RealType PeriodY, const RealType PeriodDelta,
-                                                                              const RealType AngleX, const RealType AngleY, const RealType AngleDelta ) const {
+                                                                              const RealType AngleX, const RealType AngleY, const RealType AngleDelta,
+                                                                              const char *GnuplotXMatches, const char *GnuplotYMatches ) const {
   Distances.reallocate ( 2, 0 );
   
   // Iterate over all atoms, find corresponding neighbors (atoms within the specified x-, y-distance and angle)
   // and collect the corresponding distances separately for x and y
   RealType dx, dy, angle, dist;
+
+  std::ofstream outX, outY;
+  if ( GnuplotXMatches )
+    outX.open ( GnuplotXMatches );
+  if ( GnuplotYMatches )
+    outY.open ( GnuplotYMatches );
+
   for ( int i=0; i<Centers.numComponents ( ) ; ++i ) {
     short numXNeighbors = 0, numYNeighbors = 0;
     aol::MultiVector<RealType> centersXNeighbors ( Centers.numComponents ( ), 2 ), centersYNeighbors ( Centers.numComponents ( ), 2 );
@@ -46,6 +54,18 @@ void EMImgQualityQuantifier<_RealType, _MatrixType, _LinearRegressionType, _Scal
       std::cerr << "Centers of the neighbors:" << std::endl;
       for ( int k=0; k<numYNeighbors ; ++k ) std::cerr << centersYNeighbors[k] << std::endl;
       std::cerr << std::endl;
+    }
+    if ( GnuplotXMatches ) {
+      for ( int k = 0; k < numXNeighbors; ++k ) {
+        outX << Centers[i][0] << " " << Centers[i][1] << " ";
+        outX << centersXNeighbors[k][0]-Centers[i][0] << " " << centersXNeighbors[k][1]-Centers[i][1] << endl;
+      }
+    }
+    if ( GnuplotYMatches ) {
+      for ( int k = 0; k < numYNeighbors; ++k ) {
+        outY << Centers[i][0] << " " << Centers[i][1] << " ";
+        outY << centersYNeighbors[k][0]-Centers[i][0] << " " << centersYNeighbors[k][1]-Centers[i][1] << endl;
+      }
     }
   }
 }

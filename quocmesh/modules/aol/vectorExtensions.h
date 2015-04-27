@@ -256,6 +256,11 @@ public:
     for ( int i = 0; i < this->size(); ++i )
       (*this)[i].setZero();
   }
+    
+  void setAll ( const RealType value ) {
+    for ( int i = 0; i < this->size(); ++i )
+      (*this)[i].setAll ( value );
+  }
 
   VectorContainer<DataType> &  operator+=(  const VectorContainer<DataType>& other ){
     return addMultiple( other, aol::ZOTrait<RealType>::one );
@@ -266,19 +271,35 @@ public:
   }
 
   VectorContainer<DataType> &  operator*=(  const RealType value ){
-
     for ( int i = 0; i < this->size(); ++i )
       (*this)[i] *= value;
     return *this;
   }
 
   VectorContainer<DataType> &  addMultiple( const VectorContainer<DataType>& other, const RealType value ){
-
     if ( this->size() != other.size() )
       throw aol::Exception ( "aol::VectorContainer::addMultiple: sizes don't match", __FILE__, __LINE__ );
 
     for ( int i = 0; i < this->size(); ++i )
       (*this)[i].addMultiple( other[i], value );
+    return *this;
+  }
+    
+  VectorContainer<DataType> & scaleAndAdd ( const RealType factor, const VectorContainer<DataType>& other ){
+    if ( this->size() != other.size() )
+      throw aol::Exception ( "aol::VectorContainer::addMultiple: sizes don't match", __FILE__, __LINE__ );
+   
+    for ( int i = 0; i < this->size(); ++i )
+      (*this)[i].scaleAndAdd( factor, other[i] );
+    return *this;
+  }
+  
+  VectorContainer<DataType> & scaleAndAddMultiple ( const RealType scaleFactor, const VectorContainer<DataType>& other, const RealType vecFactor ){
+    if ( this->size() != other.size() )
+      throw aol::Exception ( "aol::VectorContainer::addMultiple: sizes don't match", __FILE__, __LINE__ );
+    
+    for ( int i = 0; i < this->size(); ++i )
+      (*this)[i].scaleAndAddMultiple( scaleFactor, other[i], vecFactor );
     return *this;
   }
 
@@ -295,13 +316,11 @@ public:
 
 
   RealType dotProduct ( const VectorContainer<DataType>& other )  const {
-
     return this->operator*( other );
   }
 
 
   RealType operator* ( const VectorContainer< DataType > &  other ) const {
-
     if( this->size() != other.size())
       throw Exception ( "aol::VectorContainer<DataType>::operator* : dimensions don't match.", __FILE__, __LINE__ );
 

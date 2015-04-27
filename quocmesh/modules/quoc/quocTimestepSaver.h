@@ -413,6 +413,7 @@ class DefaultArraySaver : public aol::StepSaverBase<RealType, typename qc::Scala
   const bool _saveRangeInPNGNameIn2D;
   RealType _enhanceContrastSaturationPercentage;
   static const qc::Dimension Dim = static_cast<qc::Dimension> ( _Dim );
+  aol::Vec2<RealType> _clipMinMax;
 protected:
   void doSaveStep ( const qc::ScalarArray<RealType, Dim> &SaveInput, const int Iteration, const char *OverrideBaseSaveName ) const {
     if ( ( Dim != qc::QC_2D ) || ( _onlySavePNGIn2D == false ) )
@@ -426,6 +427,8 @@ protected:
       else {
         if ( _enhanceContrastSaturationPercentage > 0 )
           temp.setOverflowHandlingToEnhanceContrast ( _enhanceContrastSaturationPercentage );
+        else if ( _clipMinMax.norm() > 0 )
+          temp.setOverflowHandling ( aol::CLIP_THEN_SCALE, _clipMinMax[0], _clipMinMax[1] );
         else
           temp.setOverflowHandlingToCurrentValueRange ( );
         if ( _saveRangeInPNGNameIn2D )
@@ -443,10 +446,16 @@ public:
       _onlySavePNGIn2D ( OnlySavePNGIn2D ) ,
       _dontSavePNGIn2D ( DontSavePNGIn2D ),
       _saveRangeInPNGNameIn2D ( SaveRangeInPNGNameIn2D ),
-      _enhanceContrastSaturationPercentage ( 0 ) {}
+      _enhanceContrastSaturationPercentage ( 0 ),
+      _clipMinMax ( 0, 0 ) {}
 
   void setEnhanceContrastSaturationPercentage ( const RealType EnhanceContrastSaturationPercentage ) {
     _enhanceContrastSaturationPercentage = EnhanceContrastSaturationPercentage;
+  }
+
+  void setClipMinMax ( const RealType Min, const RealType Max ) {
+    _clipMinMax[0] = Min;
+    _clipMinMax[1] = Max;
   }
 };
 

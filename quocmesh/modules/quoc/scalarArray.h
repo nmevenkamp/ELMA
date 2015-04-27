@@ -267,8 +267,8 @@ public:
 
     inline bool sourceRangeOk ( const ScalarArray<DataType, qc::QC_2D> &source, const int sRanX[2], const int sRanY[2], const int tRanX[2], const int tRanY[2] ) {
       // Only values inside of source can be interpolated.
-      return ( ( sRanX[0] + ( tRanX[1] - tRanX[0] ) - 1 ) * _hx <= ( source.getNumX() - 1 )
-               && ( sRanY[0] + ( tRanY[1] - tRanY[0] ) - 1 ) * _hy <= ( source.getNumY() - 1 ) );
+      return ( ( static_cast<int> ( ( sRanX[0] + ( tRanX[1] - tRanX[0] ) - 1 ) * _hx ) <= ( source.getNumX() - 1 ) )
+            && ( static_cast<int> ( ( sRanY[0] + ( tRanY[1] - tRanY[0] ) - 1 ) * _hy ) <= ( source.getNumY() - 1 ) ) );
     }
 
     inline DataType operator() ( int x, int y, const ScalarArray<DataType, qc::QC_2D> &source ) {
@@ -641,6 +641,15 @@ public:
     else if ( Y > this->numY - 1 ) Y = Y % this->numY;
     return this->get ( X, Y );
   }
+  
+  //! reflection clipping
+  DataType getReflection ( int X, int Y ) const {
+    if ( X < 0 ) X = -X;
+    else if ( X > this->numX - 1 ) X = 2 * ( this->numX - 1 ) - X;
+    if ( Y < 0 ) Y = -Y;
+    else if ( Y > this->numY - 1 ) Y = 2 * ( this->numY - 1 ) - Y;
+    return this->get ( X, Y );
+  }
 
   DataType getClip ( int X, int Y ) const {
     if ( X < 0 ) X = 0;
@@ -709,6 +718,10 @@ public:
   }
 
   void add ( const CoordType &Pt, DataType V ) {
+    Array<DataType>::add ( Pt, V );
+  }
+
+  void add ( const aol::Vec2<short> &Pt, DataType V ) {
     Array<DataType>::add ( Pt, V );
   }
 
@@ -1528,9 +1541,9 @@ public:
     inline bool sourceRangeOk ( const ScalarArray<DataType, qc::QC_3D> &source, const int sRanX[2], const int sRanY[2], const int sRanZ[2],
                                 const int tRanX[2], const int tRanY[2], const int tRanZ[2] ) {
       // Only values inside of source can be interpolated.
-      return ( ( sRanX[0] + ( tRanX[1] - tRanX[0] ) - 1 ) * _hx <= ( source.getNumX() - 1 )
-               && ( sRanY[0] + ( tRanY[1] - tRanY[0] ) - 1 ) * _hy <= ( source.getNumY() - 1 )
-               && ( sRanZ[0] + ( tRanZ[1] - tRanZ[0] ) - 1 ) * _hz <= ( source.getNumZ() - 1 ) );
+      return ( static_cast<int>(( sRanX[0] + ( tRanX[1] - tRanX[0] ) - 1 ) * _hx) <= ( source.getNumX() - 1 )
+               &&  static_cast<int> (( sRanY[0] + ( tRanY[1] - tRanY[0] ) - 1 ) * _hy) <= ( source.getNumY() - 1 )
+               && static_cast<int>(( sRanZ[0] + ( tRanZ[1] - tRanZ[0] ) - 1 ) * _hz) <= ( source.getNumZ() - 1 ) );
     }
 
     inline DataType operator() ( int x, int y, int z, const ScalarArray<DataType, qc::QC_3D> &source ) {

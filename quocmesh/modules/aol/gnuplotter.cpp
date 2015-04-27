@@ -18,4 +18,22 @@ bool runGnuplot ( const char *GnuplotCommandFileName ) {
   return !failed;
 }
 
+void plotPrecisionMatches ( const string GnuplotdatOutputFile,
+                            const string &BaseOutName,
+                            const string &BackgroundImageFile,
+                            const string &PrecXMatchFile,
+                            const string &PrecYMatchFile ) {
+  std::ofstream gnuplotdat ( GnuplotdatOutputFile.c_str() );
+  gnuplotdat << "set terminal postscript eps color\n";
+  gnuplotdat << "set output \"" << BaseOutName << "\"\n";
+  gnuplotdat << "unset xtics\n";
+  gnuplotdat << "unset ytics\n";
+  gnuplotdat << "set size square 1, 1.4285715\n";
+  gnuplotdat << "plot \"" << BackgroundImageFile << "\" binary filetype=png flipy w rgbimage notitle, \""
+             << PrecXMatchFile << "\" with vectors title \"X\", \""
+             << PrecYMatchFile << "\" with vectors title \"Y\"";
+  gnuplotdat.close();
+  aol::runGnuplot ( GnuplotdatOutputFile.c_str() );
+}
+
 }

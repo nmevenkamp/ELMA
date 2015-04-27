@@ -7,6 +7,7 @@
 #include <bitVector.h>
 #include <bzipiostream.h>
 #include <ChanVese.h>
+#include <clustering.h>
 #include <complexUtils.h>
 #include <convergenceEstimator.h>
 #include <CSRMatrix.h>
@@ -47,6 +48,7 @@
 #include <ppmwriter.h>
 #include <preconditioner.h>
 #include <probDistributionFunction.h>
+#include <projectors.h>
 #include <progressBar.h>
 #include <qmException.h>
 #include <QRDecomposition.h>

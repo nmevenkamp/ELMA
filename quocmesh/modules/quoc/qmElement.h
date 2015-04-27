@@ -60,6 +60,9 @@ public:
   Element ( const aol::Vec3<short> &Coord, short Level, unsigned char Type = 9 )
       : aol::Vec3<short> ( Coord ), leveL ( Level ), typE ( Type ) {}
 
+  Element ( const aol::Vec2<short> &Coord, short Level, unsigned char Type = 9 )
+      : aol::Vec3<short> ( Coord[0], Coord[1], 0 ), leveL ( Level ), typE ( Type ) {}
+
   const Element & getCubicElement () const {
     return *this;
   }

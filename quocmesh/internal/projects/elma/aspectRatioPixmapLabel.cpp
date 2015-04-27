@@ -20,7 +20,7 @@ void AspectRatioPixmapLabel::cropPixmap ( const QRect & r ) {
   }
   displayPixmap ( );
 }
-  
+
 void AspectRatioPixmapLabel::displayPixmap ( ) {
   _canvas = QPixmap ( _pix.size ( ) );
   QPoint origin ( 0, 0 );
@@ -53,7 +53,7 @@ void AspectRatioPixmapLabel::resetOverlay ( ) {
   _overlay.fill ( qRgba(0,0,0,0) );
   _overlayOpacity = 0;
 }
-
+      
 void AspectRatioPixmapLabel::clearPermanentOverlay ( ) {
   _permanentOverlay = QImage ( _pix.size ( ), QImage::Format_ARGB32_Premultiplied );
   _permanentOverlay.fill ( qRgba(0,0,0,0) );
@@ -75,6 +75,7 @@ void AspectRatioPixmapLabel::resizeEvent ( QResizeEvent * /*e*/ ) {
     QSize size = this->size();
 #if QT_VERSION >= 0x050000
     // Make use of the full resolution the display offers.
+    _canvas.setDevicePixelRatio ( this->devicePixelRatio() );
     size *= this->devicePixelRatio();
 #endif
     QLabel::setPixmap ( _canvas.scaled ( size, Qt::KeepAspectRatio, Qt::FastTransformation ) );

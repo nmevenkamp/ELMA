@@ -2,7 +2,9 @@
 #define NONLINEARREGRESSION_H_
 
 #include <matrixInverse.h>
-#include "linearProgramming.h"
+#include <linearRegression.h>
+#include <projectors.h>
+#include <statistics.h>
 
 template <typename _RealType, typename _MatrixType, typename _LinearRegressionType>
 class LevenbergMarquardtAlgorithm {
@@ -414,5 +416,56 @@ public:
 };
 
 
+template <typename _RealType>
+class Gaussian1DTargetFunctional : public aol::Op<aol::Vector<_RealType> > {
+  typedef _RealType RealType;
+protected:
+  const std::vector<std::pair<RealType, RealType> > &_data;
+public:
+  Gaussian1DTargetFunctional ( const std::vector<std::pair<RealType, RealType> > &Data )
+    : _data ( Data ) { }
+  
+  void applyAdd ( const aol::Vector<RealType> &Arg, aol::Vector<RealType> &Dest ) const {
+    if ( Arg.size ( ) != 3 )
+      throw aol::Exception ( "Arguments size is inequal to two (mean, variance)!", __FILE__, __LINE__ );
+    
+    if ( Dest.size ( ) != _data.size ( ) )
+      throw aol::Exception ( "Destination vector does not match number of data points!", __FILE__, __LINE__ );
+    
+    for ( int i=0; i<_data.size ( ) ; ++i )
+      Dest[i] += Arg[2] * NormalDistribution<RealType>::PDF ( _data[i].first, Arg[0], Arg[1] ) - _data[i].second;
+  }
+};
+
+template <typename _RealType, typename _MatrixType>
+class Gaussian1DTargetJacobian : public aol::Op<aol::Vector<_RealType>, _MatrixType> {
+  typedef _RealType RealType;
+protected:
+  const std::vector<std::pair<RealType, RealType> > &_data;
+public:
+  Gaussian1DTargetJacobian ( const std::vector<std::pair<RealType, RealType> > &Data )
+    : _data ( Data ) { }
+  
+  void applyAdd ( const aol::Vector<RealType> &/*Arg*/, aol::FullMatrix<RealType> &/*Dest*/ ) const {
+    throw aol::UnimplementedCodeException( "Not implemented", __FILE__, __LINE__ );
+  }
+  
+  void apply ( const aol::Vector<RealType> &Arg, aol::FullMatrix<RealType> &Dest ) const {
+    if ( Arg.size ( ) != 3 )
+      throw aol::Exception ( "Arguments size is inequal to two (mean, variance)!", __FILE__, __LINE__ );
+    
+    if ( Dest.getNumRows ( ) != _data.size ( ) || Dest.getNumCols ( ) != 3 )
+      throw aol::Exception ( "Destination dimensions do not fit number of data points and parameters!", __FILE__, __LINE__ );
+    
+    for ( int i=0; i<_data.size ( ) ; ++i ) {
+      const RealType x = _data[i].first;
+      Dest.set ( i, 0, Arg[2] * ( ( x - Arg[0] ) / Arg[1] * NormalDistribution<RealType>::PDF ( _data[i].first, Arg[0], Arg[1] ) ) );
+      Dest.set ( i, 1, Arg[2] * ( 0.5 * ( aol::Sqr<RealType> ( x - Arg[0] ) * NormalDistribution<RealType>::PDF ( _data[i].first, Arg[0], Arg[1] ) / aol::Sqr<RealType> ( Arg[1] )
+                                          - NormalDistribution<RealType>::PDF ( _data[i].first, Arg[0], Arg[1] ) / Arg[1] ) ) );
+      Dest.set ( i, 2, NormalDistribution<RealType>::PDF ( _data[i].first, Arg[0], Arg[1] ) );
+      
+    }
+  }
+};
 
 #endif /* NONLINEARREGRESSION_H_ */

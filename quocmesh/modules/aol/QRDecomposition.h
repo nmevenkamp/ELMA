@@ -187,7 +187,7 @@ public:
     for ( int k = 1; k < H.getNumCols(); k++ ) {
       for ( int j = 0; j < k; j++ ) {
         R.set ( j, k, QVectors[j] * QVectors[k] );
-        QVectors[k].add ( QVectors[j], ( -1. ) *R.get ( j, k ) );
+        QVectors[k].add ( j, ( -1. ) *R.get ( j, k ) );
       }
       R.set ( k, k, QVectors[k].norm() );
       QVectors[k] /= R.get ( k, k );

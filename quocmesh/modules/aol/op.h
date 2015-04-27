@@ -713,6 +713,60 @@ public:
 };
 
 /**
+ * Creates an Op from Vector to Scalar by applying a given Op from MultiVector to Scalar
+ * on the argument Vector interpreted as MultiVector with one component.
+ *
+ * \author Berkels
+ */
+template <typename RealType>
+class ScalarMVecToScalarVecOp : public Op<Vector<RealType>, Scalar<RealType> > {
+  const Op<MultiVector<RealType>, Scalar<RealType> > &_scalarMVecOp;
+public:
+  ScalarMVecToScalarVecOp ( const Op<MultiVector<RealType>, Scalar<RealType> > &ScalarMVecOp )
+    : _scalarMVecOp ( ScalarMVecOp ) {}
+
+  void applyAdd ( const Vector<RealType> &Arg, Scalar<RealType> &Dest ) const {
+    MultiVector<RealType> mArg;
+    mArg.appendReference ( Arg );
+    _scalarMVecOp.applyAdd ( mArg, Dest );
+  }
+
+  void apply ( const Vector<RealType> &Arg, Scalar<RealType> &Dest ) const {
+    MultiVector<RealType> mArg;
+    mArg.appendReference ( Arg );
+    _scalarMVecOp.apply ( mArg, Dest );
+  }
+};
+
+/**
+ * Creates an Op from Vector to Vector by applying a given Op from MultiVector to MultiVector
+ * on the argument and destination Vector both interpreted as MultiVector with one component.
+ *
+ * \author Berkels
+ */
+template <typename RealType>
+class MVecToVecOp : public Op<Vector<RealType> > {
+  const Op<MultiVector<RealType> > &_mVecOp;
+public:
+  MVecToVecOp ( const Op<MultiVector<RealType> > &MVecOp )
+    : _mVecOp ( MVecOp ) {}
+
+  void applyAdd ( const Vector<RealType> &Arg, Vector<RealType> &Dest ) const {
+    MultiVector<RealType> mArg, mDest;
+    mArg.appendReference ( Arg );
+    mDest.appendReference ( Dest );
+    _mVecOp.applyAdd ( mArg, mDest );
+  }
+
+  void apply ( const Vector<RealType> &Arg, Vector<RealType> &Dest ) const {
+    MultiVector<RealType> mArg, mDest;
+    mArg.appendReference ( Arg );
+    mDest.appendReference ( Dest );
+    _mVecOp.apply ( mArg, mDest );
+  }
+};
+
+/**
  * Creates an Op from a class that has the member function applyDerivative, by calling applyDerivative in apply.
  *
  * \author Berkels
@@ -1054,7 +1108,7 @@ protected:
   mutable DataType _lastEnergy;
 public:
   StandardGenEnergyOp()
-    : _lastEnergy ( aol::MaxInitializerTrait<float>::MaxInitializer ) {}
+    : _lastEnergy ( aol::MaxInitializerTrait<DataType>::MaxInitializer ) {}
   virtual ~StandardGenEnergyOp() {}
 
   void getLastEnergy( aol::Vector<DataType> &Energy ) const {

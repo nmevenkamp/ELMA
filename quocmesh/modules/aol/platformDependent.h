@@ -95,6 +95,8 @@ using  namespace __gnu_cxx;
 #include <float.h>
 #include <limits>
 
+typedef signed __int8 int8_t;
+typedef unsigned __int8 uint8_t;
 typedef signed __int16 int16_t;
 typedef unsigned __int16 uint16_t;
 typedef signed __int32 int32_t;
@@ -163,6 +165,8 @@ void* aligned_memory_allocation ( const size_t MemorySize, const size_t Alignmen
 void aligned_memory_deallocation ( void* Pointer );
 
 void makeDirectory ( const char *DirectoryName );
+
+void recursivelyMakeDirectory ( const char *DirectoryName, bool verbose = false );
 
 //! Creates and opens a temporary file. TempFileName has to contain a template filename ending with `XXXXXX'.
 //! (This does not apply to VC++, here the original contents of TempFileName are ignored.

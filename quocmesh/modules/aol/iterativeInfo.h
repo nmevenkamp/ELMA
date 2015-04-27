@@ -27,6 +27,8 @@ public:
   void setAccuracy ( RealType TOL );
   void setMaxIterations ( int maxIter );
   virtual void setQuietMode ( bool quiet = true );
+  virtual void setMegaQuietMode ( bool quiet = true );
+  virtual bool getMegaQuietMode ( );
   void setNumAveragingSteps ( int n );
 
   // parameter getting routines
@@ -70,6 +72,7 @@ protected:
   RealType  _TOL;
   int       _maxIter;
   bool      _quiet;
+  bool      _megaQuiet;
   ostream & _out;
 
   RealType _finalResidual;
@@ -113,6 +116,7 @@ IterativeInfo ( RealType TOL, int maxIter, bool quietMode, ostream & out,
     : _TOL ( TOL )
     , _maxIter ( maxIter )
     , _quiet ( quietMode )
+    , _megaQuiet ( false )
     , _out ( out )
     , _finalResidual ( NumberTrait<_RealType>::NaN )
     , _currentlyProceedingStep ( false )
@@ -136,7 +140,18 @@ void IterativeInfo<_RealType>::setMaxIterations ( int maxIter )
 
 template <typename _RealType>
 void IterativeInfo<_RealType>::setQuietMode ( bool quiet )
-                                                      {   _quiet = quiet;   }
+                                                      {   _quiet = quiet;
+                                                          if ( quiet == false) 
+                                                            this->setMegaQuietMode( quiet );
+                                                      }
+                                                      
+template <typename _RealType>
+void IterativeInfo<_RealType>::setMegaQuietMode ( bool quiet )
+                                                      {   _quiet = quiet; _megaQuiet = quiet;   }
+                                                      
+template <typename _RealType>
+bool IterativeInfo<_RealType>::getMegaQuietMode (  )
+                                                      {  return _megaQuiet;   }
 
 template <typename _RealType>
 _RealType IterativeInfo<_RealType>::getAccuracy () const  {  return _TOL;   }

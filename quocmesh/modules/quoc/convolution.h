@@ -23,6 +23,35 @@ template <Dimension = QC_2D, typename RealType = double>
 class ConvolutionTrait {};
 
 template <>
+class ConvolutionTrait<QC_1D,double> {
+public:
+  typedef fftw_complex FFTWComplex;
+  typedef fftw_plan FFTWPlan;
+  
+  static void* fftwMalloc( size_t n ){
+    return fftw_malloc( n );
+  }
+  static void fftwFree( void* p ){
+    fftw_free( p );
+  }
+  static FFTWPlan fftwPlan_dft_r2c( const int n, double *in, FFTWComplex *out, unsigned flags ){
+    return fftw_plan_dft_r2c_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft_c2r( const int n, FFTWComplex *in, double *out, unsigned flags ){
+    return fftw_plan_dft_c2r_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft( const int n, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    return fftw_plan_dft_1d( n, in, out, sign, flags );
+  }
+  static void fftwDestroy_plan( FFTWPlan p ){
+    fftw_destroy_plan( p );
+  }
+  static void fftwExecute( FFTWPlan p ){
+    fftw_execute( p );
+  }
+};
+  
+template <>
 class ConvolutionTrait<QC_2D,double> {
 public:
   typedef fftw_complex FFTWComplex;
@@ -45,6 +74,8 @@ public:
     return fftw_plan_dft_c2r_2d( nxy[1], nxy[0], in, out, flags );
   }
   static FFTWPlan fftwPlan_dft( aol::Vec2<int> nxy, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    // The order of the dimensions in each direction is reversed so to pretend that our ScalarArrays are rotated,
+    // but in row-major order (in reality, they are in column-major order).
     return fftw_plan_dft_2d( nxy[1], nxy[0], in, out, sign, flags );
   }
   static void fftwDestroy_plan( FFTWPlan p ){
@@ -86,6 +117,35 @@ public:
 };
 
 template <>
+class ConvolutionTrait<QC_1D,float> {
+public:
+  typedef fftwf_complex FFTWComplex;
+  typedef fftwf_plan FFTWPlan;
+  
+  static void* fftwMalloc( size_t n ){
+    return fftwf_malloc( n );
+  }
+  static void fftwFree( void* p ){
+    fftwf_free( p );
+  }
+  static FFTWPlan fftwPlan_dft_r2c( const int n, float *in, FFTWComplex *out, unsigned flags ){
+    return fftwf_plan_dft_r2c_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft_c2r( const int n, FFTWComplex *in, float *out, unsigned flags ){
+    return fftwf_plan_dft_c2r_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft( const int n, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    return fftwf_plan_dft_1d( n, in, out, sign, flags );
+  }
+  static void fftwDestroy_plan( FFTWPlan p ){
+    fftwf_destroy_plan( p );
+  }
+  static void fftwExecute( FFTWPlan p ){
+    fftwf_execute( p );
+  }
+};
+  
+template <>
 class ConvolutionTrait<QC_2D,float> {
 public:
   typedef fftwf_complex FFTWComplex;
@@ -108,6 +168,8 @@ public:
     return fftwf_plan_dft_c2r_2d( nxy[1], nxy[0], in, out, flags );
   }
   static FFTWPlan fftwPlan_dft( aol::Vec2<int> nxy, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    // The order of the dimensions in each direction is reversed so to pretend that our ScalarArrays are rotated,
+    // but in row-major order (in reality, they are in column-major order).
     return fftwf_plan_dft_2d( nxy[1], nxy[0], in, out, sign, flags );
   }
   static void fftwDestroy_plan( FFTWPlan p ){
@@ -149,6 +211,35 @@ public:
 };
 
 template <>
+class ConvolutionTrait<QC_1D,long double> {
+public:
+  typedef fftwl_complex FFTWComplex;
+  typedef fftwl_plan FFTWPlan;
+  
+  static void* fftwMalloc( size_t n ){
+    return fftwl_malloc( n );
+  }
+  static void fftwFree( void* p ){
+    fftwl_free( p );
+  }
+  static FFTWPlan fftwPlan_dft_r2c( const int n, long double *in, FFTWComplex *out, unsigned flags ){
+    return fftwl_plan_dft_r2c_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft_c2r( const int n, FFTWComplex *in, long double *out, unsigned flags ){
+    return fftwl_plan_dft_c2r_1d( n, in, out, flags );
+  }
+  static FFTWPlan fftwPlan_dft( const int n, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    return fftwl_plan_dft_1d( n, in, out, sign, flags );
+  }
+  static void fftwDestroy_plan( FFTWPlan p ){
+    fftwl_destroy_plan( p );
+  }
+  static void fftwExecute( FFTWPlan p ){
+    fftwl_execute( p );
+  }
+};
+  
+template <>
 class ConvolutionTrait<QC_2D,long double> {
 public:
   typedef fftwl_complex FFTWComplex;
@@ -171,6 +262,8 @@ public:
     return fftwl_plan_dft_c2r_2d( nxy[1], nxy[0], in, out, flags );
   }
   static FFTWPlan fftwPlan_dft( aol::Vec2<int> nxy, FFTWComplex *in, FFTWComplex *out, int sign, unsigned flags ){
+    // The order of the dimensions in each direction is reversed so to pretend that our ScalarArrays are rotated,
+    // but in row-major order (in reality, they are in column-major order).
     return fftwl_plan_dft_2d( nxy[1], nxy[0], in, out, sign, flags );
   }
   static void fftwDestroy_plan( FFTWPlan p ){
@@ -220,6 +313,29 @@ template <Dimension = QC_2D, typename RealType = double>
 class ConvolutionTrait {};
 
 template <>
+class ConvolutionTrait<QC_1D,double> {
+public:
+  typedef kiss_fft_cpx KISSFFTComplex;
+  typedef kiss_fft_cfg KISSFFTPlan;
+  
+  static void* kissfftMalloc( size_t n ){
+    return KISS_FFT_MALLOC(n);
+  }
+  static void kissfftFree( void* p ){
+    free(p);
+  }
+  static KISSFFTPlan kissfftPlan_dft( const int n, int sign ) {
+    return kiss_fft_alloc(n,sign,0,0);
+  }
+  static void kissfftDestroy_plan( KISSFFTPlan p ){
+    free(p);
+  }
+  static void kissfftExecute( KISSFFTPlan p, const KISSFFTComplex *in, KISSFFTComplex *out ){
+    kiss_fft(p, in, out);
+  }
+};
+  
+template <>
 class ConvolutionTrait<QC_2D,double> {
 public:
   typedef kiss_fft_cpx KISSFFTComplex;
@@ -233,6 +349,8 @@ public:
   }
   static KISSFFTPlan kissfftPlan_dft( aol::Vec2<int> nxy, int sign ) {
     int nfft[2];
+    // The order of the dimensions in each direction is reversed so to pretend that our ScalarArrays are rotated,
+    // but in row-major order (in reality, they are in column-major order).
     nfft[0] = nxy[1];
     nfft[1] = nxy[0];
     return kiss_fftnd_alloc(nfft,2,sign,0,0);
@@ -253,11 +371,17 @@ public:
 enum FourierTransformDirection { FTForward = FFTW_FORWARD, FTBackward = FFTW_BACKWARD };
 
 template <typename RealType>
+void FourierTransform ( const aol::MultiVector<RealType>& function, aol::MultiVector<RealType>& transform, enum FourierTransformDirection direction = FTForward );
+  
+template <typename RealType>
 void FourierTransform ( const qc::MultiArray<RealType, 2, 2>& function, qc::MultiArray<RealType, 2, 2>& transform, enum FourierTransformDirection direction = FTForward );
 
 #elif defined ( USE_KISSFFT )
 
 enum FourierTransformDirection { FTForward = 0, FTBackward = 1 };
+  
+template <typename RealType>
+void FourierTransform ( const aol::MultiVector<RealType>& function, aol::MultiVector<RealType>& transform, enum FourierTransformDirection direction = FTForward );
   
 template <typename RealType>
 void FourierTransform ( const qc::MultiArray<RealType, 2, 2>& function, qc::MultiArray<RealType, 2, 2>& transform, enum FourierTransformDirection direction = FTForward );
@@ -266,6 +390,9 @@ void FourierTransform ( const qc::MultiArray<RealType, 2, 2>& function, qc::Mult
   
 enum FourierTransformDirection { FTForward, FTBackward };
 
+template <typename RealType>
+void FourierTransform ( const aol::MultiVector<RealType>& /*function*/, aol::MultiVector<RealType>& /*transform*/, enum FourierTransformDirection /*direction*/ = FTForward );
+  
 template <typename RealType>
 void FourierTransform ( const qc::MultiArray<RealType, 2, 2>& /*function*/, qc::MultiArray<RealType, 2, 2>& /*transform*/, enum FourierTransformDirection /*direction*/ = FTForward );
 
@@ -864,6 +991,151 @@ public:
 
 };
 
+
+  
+template <typename RealType>
+void fftShift ( const aol::MultiVector<RealType> &Arg, aol::MultiVector<RealType> &Dest ) {
+  if ( Arg.numComponents ( ) != 2 || Dest.numComponents ( ) != 2 )
+    throw aol::Exception ( "MultiVector must have two components (real & complex part)!", __FILE__, __LINE__ );
+  
+  const int size = Arg[0].size ( );
+  if ( Arg [1].size () != size || Dest [0].size () != size ||  Dest [1].size () != size )
+    throw aol::Exception ( "Array sizes not equal", __FILE__, __LINE__ );
+  
+  const RealType center = 0.5 * ( size - 1 );
+  for ( int k=0; k<2 ; ++ k ) {
+    for ( int i=0; i<center ; ++ i )
+      Dest[k][i] = Arg[k][i+floor(center)+1];
+    for ( int i=ceil(center); i<size ; ++i )
+      Dest[k][i] = Arg[k][i-ceil(center)];
+  }
+}
+  
+template <typename RealType>
+void ifftShift ( const aol::MultiVector<RealType> &Arg, aol::MultiVector<RealType> &Dest ) {
+  if ( Arg.numComponents ( ) != 2 || Dest.numComponents ( ) != 2 )
+    throw aol::Exception ( "MultiVector must have two components (real & complex part)!", __FILE__, __LINE__ );
+  
+  const int size = Arg[0].size ( );
+  if ( Arg [1].size () != size || Dest [0].size () != size ||  Dest [1].size () != size )
+    throw aol::Exception ( "Array sizes not equal", __FILE__, __LINE__ );
+  
+  const RealType center = 0.5 * ( size - 1 );
+  for ( int k=0; k<2 ; ++ k ) {
+    for ( int i=0; i<=center ; ++i )
+      Dest[k][i] = Arg[k][i+ceil(center)];
+    for ( int i=floor(center)+1 ; i<size ; ++i )
+      Dest[k][i] = Arg[k][i-(floor(center)+1)];
+  }
+}
+
+template <typename RealType>
+void getBandWidthPartitioning ( int Size, aol::Vector<int> &BandWidths ) {
+  int maxBandWidthExponent = floor ( log2 ( static_cast<RealType> ( Size ) ) - 2 );
+  BandWidths.resize ( 2 * ( maxBandWidthExponent + 2 ) );
+  for ( int i=0; i<=maxBandWidthExponent ; ++i ) {
+    BandWidths[i+1] = maxBandWidthExponent - i;
+    BandWidths[i+3+maxBandWidthExponent] = i;
+  }
+  for ( int i=0; i<BandWidths.size ( ) ; ++i )
+    BandWidths[i] = aol::Pow ( 2, BandWidths[i] );
+}
+  
+/**
+ * Discrete Orthogonal Stockwell Transform (DOST) - 1D complex-to-complex
+ *
+ * Algorithm is based on
+ * Battisti, U., Riba, L.: Window-Dependent Bases for Efficient Representations of the Stockwell Transform.
+ *
+ * Implementation is based on MATLAB code provided by the authors at http://www.mathworks.com/matlabcentral/fileexchange/47222-1-dimensional-dost-zip
+ *
+ * \author Mevenkamp
+ */
+template <typename RealType>
+void StockwellTransform ( const aol::MultiVector<RealType> &function, aol::MultiVector<RealType> &transform ) {
+  if ( function.numComponents ( ) != 2 || transform.numComponents ( ) != 2 )
+    throw aol::Exception ( "MultiVector must have two components (real & complex part)!", __FILE__, __LINE__ );
+  
+  const int size = function[0].size ( );
+  if ( function [1].size () != size || transform [0].size () != size ||  transform [1].size () != size )
+    throw aol::Exception ( "Array sizes not equal in StockwellTransform", __FILE__, __LINE__ );
+  
+  aol::Vector<int> bandWidths;
+  getBandWidthPartitioning<RealType> ( size, bandWidths );
+  
+  // Forward Fourier transform
+  aol::MultiVector<RealType> tmp ( 2, size );
+  ifftShift<RealType> ( function, tmp );
+  qc::FourierTransform<RealType> ( tmp, transform );
+  fftShift<RealType> ( transform, tmp );
+  tmp /= sqrt ( static_cast<RealType> ( size ) );
+  
+  // Compute inverse Fourier transform of the cutted Fourier transform
+  transform.setZero ( );
+  int counter = 0;
+  for ( int l=0; l<bandWidths.size ( ) ; ++l ) {
+    int frequencyWidthCutter = bandWidths[l];
+    if ( frequencyWidthCutter > 1 ) {   // perform inverse FFT
+      aol::MultiVector<RealType> cutTmp1 ( 2, frequencyWidthCutter ), cutTmp2 ( cutTmp1, aol::STRUCT_COPY );
+      for ( int k=0; k<frequencyWidthCutter ; ++k ) {
+        cutTmp1[0][k] = tmp[0][k+counter];
+        cutTmp1[1][k] = tmp[1][k+counter];
+      }
+      ifftShift<RealType> ( cutTmp1, cutTmp2 );
+      qc::FourierTransform<RealType> ( cutTmp2, cutTmp1, FTBackward );
+      fftShift<RealType> ( cutTmp1, cutTmp2 );
+      cutTmp2 /= sqrt ( static_cast<RealType> ( frequencyWidthCutter ) );
+      for ( int k=0; k<frequencyWidthCutter ; ++k ) {
+        transform[0][k+counter] = cutTmp2[0][k];
+        transform[1][k+counter] = cutTmp2[1][k];
+      }
+    } else {                            // output identity
+      transform[0][counter] = tmp[0][counter];
+      transform[1][counter] = tmp[1][counter];
+    }
+    counter += frequencyWidthCutter;
+  }
+}
+  
+/**
+ * Discrete Orthogonal Stockwell Transform (DOST) - 2D complex-to-complex
+ *
+ * Simply applies 1D DOST to all columns first and then to all rows
+ *
+ * \author Mevenkamp
+ */
+template <typename RealType>
+void StockwellTransform ( const qc::MultiArray<RealType, 2, 2> &function, qc::MultiArray<RealType, 2, 2> &transform ) {
+  int numX = function [0].getNumX (), numY = function [0].getNumY ();
+  if ( function [1].getNumX () != numX || transform [0].getNumX () != numX ||  transform [1].getNumX () != numX ||
+      function [1].getNumY () != numY || transform [0].getNumY () != numY ||  transform [1].getNumY () != numY )
+    throw aol::Exception ( "Array sizes not equal in StockwellTransform", __FILE__, __LINE__ );
+  
+  // apply to all columns
+  aol::MultiVector<RealType> fcol ( 2, function[0].getNumX ( ) ), tcol ( fcol, aol::STRUCT_COPY );
+  for ( int y=0; y<numY ; ++y ) {
+    for ( int x=0; x<numX ; ++x )
+      for ( int k=0; k<2 ; ++k )
+        fcol[k][x] = function[k].get ( x, y );
+    StockwellTransform<RealType> ( fcol, tcol );
+    for ( int x=0; x<numX ; ++x )
+      for ( int k=0; k<2 ; ++k )
+        transform[k].set ( x, y, tcol[k][x] );
+  }
+  
+  // apply to all rows
+  aol::MultiVector<RealType> frow ( 2, function[0].getNumX ( ) ), trow ( fcol, aol::STRUCT_COPY );
+  for ( int x=0; x<numX ; ++x ) {
+    for ( int y=0; y<numY ; ++y )
+      for ( int k=0; k<2 ; ++k )
+        frow[k][y] = transform[k].get ( x, y );
+    StockwellTransform<RealType> ( frow, trow );
+    for ( int y=0; y<numY ; ++y )
+      for ( int k=0; k<2 ; ++k )
+        transform[k].set ( x, y, trow[k][y] );
+  }
+}
+  
 } // namespace qc
 
 #endif // __CONVOLUTION_H

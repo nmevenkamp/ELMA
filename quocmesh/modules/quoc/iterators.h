@@ -44,12 +44,19 @@ public:
   //! Default constructor
   RectangularIteratorBase ( ) : _lower (), _upper (), _current ( _lower ) { }
 
-  RectangularIteratorBase ( const IteratedType &Lower, const IteratedType &Upper ) : _lower ( Lower ), _upper ( Upper ), _current ( _lower ) { }
+  RectangularIteratorBase ( const IteratedType &Lower, const IteratedType &Upper ) : _lower ( Lower ), _upper ( Upper ), _current ( _lower ) {
+    for ( int i = 0; i < Dim; ++i )
+      if ( _lower[i] >= _upper[i] ) // then the iterated set is empty, i.e. we may set _current such that atEnd returns true
+        _current[Dim-1] = _upper[Dim-1];
+  }
 
   RectangularIteratorBase ( const typename aol::VecDimTrait<int, Dim>::VecType &Lower, const typename aol::VecDimTrait<int, Dim>::VecType &Upper ) : _lower ( IteratedType ( Lower ) ), _upper ( IteratedType ( Upper ) ), _current ( IteratedType ( _lower ) ) {
     for ( short int i = 0; i < Dim; ++i )
       if ( Lower[i] != _lower[i] || Upper[i] != _upper[i] )
         throw aol::Exception ( "RectangularIteratorBase: integer to short conversion produced overflow", __FILE__, __LINE__ );
+    for ( int i = 0; i < Dim; ++i )
+      if ( _lower[i] >= _upper[i] ) // then the iterated set is empty, i.e. we may set _current such that atEnd returns true
+        _current[Dim-1] = _upper[Dim-1];
   }
 
   template < typename Structure >
@@ -64,6 +71,9 @@ public:
       _upper[i] = rCont.getUpper()[i];
     }
     _current = _lower;
+    for ( int i = 0; i < Dim; ++i )
+      if ( _lower[i] >= _upper[i] ) // then the iterated set is empty, i.e. we may set _current such that atEnd returns true
+        _current[Dim-1] = _upper[Dim-1];
   }
 
   inline bool atEnd ( ) const {
@@ -89,6 +99,9 @@ public:
       _upper[i] = struc.getSize()[i];
     }
     _current = _lower;
+    for ( int i = 0; i < Dim; ++i )
+      if ( _lower[i] >= _upper[i] ) // then the iterated set is empty, i.e. we may set _current such that atEnd returns true
+        _current[Dim-1] = _upper[Dim-1];
   }
 
 };

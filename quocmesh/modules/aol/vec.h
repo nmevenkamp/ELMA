@@ -1012,6 +1012,19 @@ public:
     }
   }
 
+  //! rearranges values in backwards order (in-place)
+  void revertOrder ( ) {
+    int i0 = 0, i1 = _size - 1;
+    DataType val;
+    while ( i0 != i1 ) {
+      val = this->get ( i0 );
+      this->set ( i0, this->get ( i1 ) );
+      this->set ( i1, val );
+      ++i0;
+      --i1;
+    }
+  }
+  
   //! imports values from Other in backwards order, size must be set previously
   void revertOrderFrom( const aol::Vector<DataType> &Other ) {
     for ( int i = 0; i < Other.size(); ++i ) {

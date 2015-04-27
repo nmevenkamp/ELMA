@@ -812,6 +812,25 @@ public:
 #endif // USE_EXTERNAL_GMM
   }
 
+  // applies transposed matrix to argument
+  void applyAddTransposed( const aol::Vector<DataType>& Arg, aol::Vector<DataType>& Dest ) const {
+#ifdef BOUNDS_CHECK
+    if ( Arg.size() != this->getNumRows() )
+      throw aol::Exception ( "applyAddTransposed():: Arg has wrong size", __FILE__, __LINE__, __FUNCTION__ );
+    if ( Dest.size() !=  this->getNumCols () )
+      throw aol::Exception ( "applyAddTransposed():: Dest has wrong size", __FILE__, __LINE__, __FUNCTION__ );
+#endif
+    
+    for ( int i = 0; i < this->getNumRows(); ++i ){
+      vector<typename aol::Row<DataType>::RowEntry > rowEntries;
+      this->makeRowEntries ( rowEntries, i );
+      for ( typename vector<typename aol::Row<DataType>::RowEntry >::iterator it = rowEntries.begin(); it != rowEntries.end(); ++it )
+        Dest[ it->col ] += it->value * Arg[i];
+    }
+    
+  }
+  
+  
 private:
   void init( ) {
     for ( int i = 0; i < this->getNumRows(); ++i )
@@ -869,6 +888,7 @@ protected:
   VectorType<DataType> _value;
 
   template<typename, template <typename>class> friend class TripletMatrixOffset;
+  template<typename, template <typename>class> friend class TripletMatrixOffsetUpperTriangle;
 
   //! \brief Remove entries that have value zero.
   void removeZeroEntries () {
@@ -1000,6 +1020,16 @@ public:
     Dest.setZero();
     for ( int k = 0; k < _rowIndex.size(); ++k )
       Dest[_rowIndex[k]] += Arg[_colIndex[k]] * _value[k];
+  }
+
+  //! \brief Apply method to be used when only the upper triangular part was stored
+  virtual void applyUpperTriangle ( const aol::Vector<DataType> &Arg, aol::Vector<DataType> &Dest ) const {
+    Dest.setZero();
+    for ( int k = 0; k < _rowIndex.size(); ++k )  {
+      Dest[_rowIndex[k]] += Arg[_colIndex[k]] * _value[k];
+      if ( _rowIndex[k] != _colIndex[k] )
+        Dest[_colIndex[k]] += Arg[_rowIndex[k]] * _value[k];
+    }
   }
 
   //! \brief applyAdd method for compatibility with other matrices.
@@ -1163,10 +1193,24 @@ public:
   }
 
   //! Set the whole row and col to zero except for the diagonal entry
+  //! \warning naive and slow implementation
   void setRowColToDiagonal ( const int index, const DataType diagEntry = 1. )  {
     setRowToZero( index );
     setColToZero( index );
     add( index, index, diagEntry );
+  }
+
+  //! Set whole rows and cols given by an index set to zero except for the diagonal entry
+  //! In principle it should be faster to traverse the values list only once and query the index set each time
+  //! templatized to be usuable with std::unordered_set and previous versions thereof
+  template <typename HashSetType>
+  void setRowsColsToDiagonal ( const HashSetType & hashset, const DataType diagEntry = 1. )  {
+    for ( int k = 0; k < _rowIndex.size (); ++k ) {
+      if ( ( hashset.find ( _rowIndex[k] ) != hashset.end() ) || ( hashset.find ( _colIndex[k] ) != hashset.end() ) )
+        _value[k] = 0.0;
+    }
+    for ( typename HashSetType::const_iterator it = hashset.begin(); it != hashset.end(); ++it )
+      add ( *it, *it, diagEntry );
   }
 };
 
@@ -1318,15 +1362,17 @@ public:
   }
 
   //! \brief Apply function for compatibility with other matrices.
-  //! \warning Not implemented.
-  virtual void apply ( const aol::Vector<DataType> &, aol::Vector<DataType> & ) const {
-    throw aol::UnimplementedCodeException ( "Apply not implemented...", __FILE__, __LINE__ );
+  virtual void apply ( const aol::Vector<DataType> & Arg, aol::Vector<DataType> & Dest ) const {
+    Dest.setZero();
+    applyAdd( Arg, Dest );
   }
 
   //! \brief applyAdd method for compatibility with other matrices.
-  //! \warning Not implemented.
-  virtual void applyAdd ( const aol::Vector<DataType> &, aol::Vector<DataType> & ) const {
-    throw aol::UnimplementedCodeException ( "ApplyAdd not implemented...", __FILE__, __LINE__ );
+  virtual void applyAdd ( const aol::Vector<DataType> & Arg, aol::Vector<DataType> & Dest ) const {
+    for ( int k = 0; k < _mat._rowIndex.size(); ++k )
+      if (    ( _mat._rowIndex[k] >= _rowOffset ) && ( _mat._rowIndex[k] < _rowOffset + this->getNumRows() )
+           && ( _mat._colIndex[k] >= _colOffset ) && ( _mat._colIndex[k] < _colOffset + this->getNumCols() ) )
+        Dest[ _mat._rowIndex[k] - _rowOffset ] += Arg[ _mat._colIndex[k] - _colOffset ] * _mat._value[k];
   }
 
   //! \brief Determine if setZero sets the whole underlying matrix to zero.
@@ -1373,6 +1419,24 @@ public:
     // only the upper triangular part should be filled, filter out the rest
     if ( row <= col ) this->_mat.add ( row + this->_rowOffset, col + this->_colOffset, value );
   }
+
+  //! \brief Apply function for compatibility with other matrices.
+  virtual void apply ( const aol::Vector<DataType> & Arg, aol::Vector<DataType> & Dest ) const {
+    Dest.setZero();
+    applyAdd( Arg, Dest );
+  }
+
+  //! \brief applyAdd method for compatibility with other matrices.
+  virtual void applyAdd ( const aol::Vector<DataType> & Arg, aol::Vector<DataType> & Dest ) const {
+    for ( int k = 0; k < this->_mat._rowIndex.size(); ++k )
+      if (    ( this->_mat._rowIndex[k] >= this->_rowOffset ) && ( this->_mat._rowIndex[k] < this->_rowOffset + this->getNumRows() )
+           && ( this->_mat._colIndex[k] >= this->_colOffset ) && ( this->_mat._colIndex[k] < this->_colOffset + this->getNumCols() ) )  {
+        Dest[ this->_mat._rowIndex[k] - this->_rowOffset ] += Arg[ this->_mat._colIndex[k] - this->_colOffset ] * this->_mat._value[k];
+        if ( this->_mat._rowIndex[k] - this->_rowOffset != this->_mat._colIndex[k] - this->_mat._colIndex[k] )
+          // we are not on the diagonal of the current block
+          Dest[ this->_mat._colIndex[k] - this->_colOffset ] += Arg[ this->_mat._rowIndex[k] - this->_rowOffset ] * this->_mat._value[k];
+      }
+  }
 };
 
 //! \brief Base class for compressed sparse (row, column) matrices
@@ -1387,9 +1451,6 @@ protected:
 public:
   explicit CSMatrix ()
   : Matrix<DataType> ( 0, 0 ) {}
-
-  explicit CSMatrix ( IndexType numRows, IndexType numCols )
-  : Matrix<DataType> ( numRows, numCols ), _indPointer ( numRows + 1 ) {}
 
   explicit CSMatrix ( const CSMatrix<DataType, IndexType> &other, CopyFlag copyFlag = DEEP_COPY )
   : Matrix<DataType> ( other, copyFlag ), _index ( other._index, copyFlag ),
@@ -1526,7 +1587,11 @@ protected:
   }
 
   //! \warning Untested!
-  void setFromSparse ( const SparseMatrix<DataType> &sparseMatrix ) {
+  //! \note Argument is not const because of SparseMatrixRowIterator
+  void setFromSparse ( SparseMatrix<DataType> &sparseMatrix ) {
+    // Set index pointer to correct size
+    this->_indPointer.resize ( sparseMatrix.getNumCols () + 1);
+
     // helper variables, make t long int, because it needs to be signed. If IndexType = unsigned long int, this does not work!
     aol::Vector<long int> t ( aol::Max ( this->getNumRows (), this->getNumCols () ) );
     int k;
@@ -1559,19 +1624,25 @@ protected:
       for ( aol::SparseMatrixRowIterator<DataType> it ( sparseMatrix, i ); it.notAtEnd (); ++it ) {
         k = ( t[it->col] )++;
         this->_index[k] = i;
-        this->_value[k] = it->val;
+        this->_value[k] = it->value;
       }
     }
   }
 
 public:
   //! \brief Constructor taking the number of rows and columns.
-  explicit CSCMatrix ( IndexType numRows, IndexType numCols )
-  : CSMatrix<DataType, IndexType> ( static_cast<int> ( numRows ), static_cast<int> ( numCols ) ) {}
+  explicit CSCMatrix ( IndexType numRows, IndexType numCols ) {
+    // Set matrix dimensions
+    this->_numRows = numRows;
+    this->_numCols = numCols;
+
+    // Set column index vector size
+    this->_indPointer.resize ( numCols + 1 );
+  }
 
   //! \brief Standard constructor.
   explicit CSCMatrix ()
-  : CSMatrix<DataType, IndexType> ( 0, 0 ) {}
+  : CSMatrix<DataType, IndexType> () {}
 
   //! \brief Copy constructor.
   CSCMatrix ( const CSCMatrix &other, CopyFlag copyFlag = DEEP_COPY )
@@ -1583,8 +1654,12 @@ public:
    * entries, the contributions are summed up (so it is not necessary
    * to call sumDuplicates on the TripletMatrix).
    */
-  CSCMatrix ( const TripletMatrix<DataType> &tripletMatrix )
-  : CSMatrix<DataType, IndexType> ( tripletMatrix.getNumRows (), tripletMatrix.getNumCols () ) {
+  CSCMatrix ( const TripletMatrix<DataType> &tripletMatrix ) {
+    // Set matrix dimensions
+    this->_numRows = tripletMatrix.getNumRows ();
+    this->_numCols = tripletMatrix.getNumCols ();
+
+    // Set matrix entries
     setFromTriplet ( tripletMatrix );
   }
 
@@ -1865,12 +1940,18 @@ protected:
 
 public:
   //! \brief Constructor taking the number of rows and columns.
-  CSRMatrix ( IndexType numRows, IndexType numCols )
-  : CSMatrix<DataType, IndexType>  ( static_cast<int> ( numRows ), static_cast<int> ( numCols ) ) {}
+  CSRMatrix ( IndexType numRows, IndexType numCols ) {
+    // Set matrix dimensions
+    this->_numRows = numRows;
+    this->_numCols = numCols;
+
+    // Set row index vector size
+    this->_indPointer.resize ( numRows + 1 );
+  }
 
   //! \brief Standard constructor.
   CSRMatrix ()
-  : CSMatrix<DataType, IndexType> ( 0, 0 ) {}
+  : CSMatrix<DataType, IndexType> () {}
 
   //! \brief Copy constructor.
   CSRMatrix ( const CSRMatrix &other, CopyFlag copyFlag = DEEP_COPY )
@@ -1882,8 +1963,12 @@ public:
    * entries, the contributions are summed up (so it is not necessary
    * to call sumDuplicates on the TripletMatrix).
    */
-  CSRMatrix ( const TripletMatrix<DataType> &tripletMatrix )
-  : CSMatrix<DataType, IndexType> ( tripletMatrix.getNumRows (), tripletMatrix.getNumCols () ) {
+  CSRMatrix ( const TripletMatrix<DataType> &tripletMatrix ) {
+    // Set matrix dimensions
+    this->_numRows = tripletMatrix.getNumRows ();
+    this->_numCols = tripletMatrix.getNumCols ();
+
+    // Set matrix entries
     setFromTriplet ( tripletMatrix );
   }
 

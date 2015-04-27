@@ -87,7 +87,7 @@ public:
                         qc::ScalarArray<double, qc::QC_2D> &ElectronMicrograph,
                         const int AtomType,
                         const double Gamma, const double MaxIt, const double Epsilon )
-    : ProgressWorker ( ImageLabel, Image ), _electronMicrograph ( ElectronMicrograph ), _atomType ( AtomType ), _gamma ( GAMMA ), _maxIt ( MaxIt ), _epsilon ( Epsilon ) { }
+    : ProgressWorker ( ImageLabel, Image ), _electronMicrograph ( ElectronMicrograph ), _atomType ( AtomType ), _gamma ( Gamma ), _maxIt ( MaxIt ), _epsilon ( Epsilon ) { }
   
   const char* getText ( ) {
     return "Detecting atoms";

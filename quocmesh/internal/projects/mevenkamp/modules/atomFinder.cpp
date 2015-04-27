@@ -31,7 +31,7 @@ void AtomFinder<_RealType, _MatrixType, _LinearRegressionType, _ScalarPictureTyp
     segmentation.setOverflowHandlingToCurrentValueRange ( );
     segmentation.savePNG ( ss.str ( ).c_str ( ) );
   }
-  
+
   segmentation.threshold ( 0.5, 0, 1 );
   
   if ( _diskOutput ) {
@@ -45,7 +45,12 @@ void AtomFinder<_RealType, _MatrixType, _LinearRegressionType, _ScalarPictureTyp
   for ( int i=0; i<segmentation.getNumXYZ ( ); ++i )
     for ( int j=0; j<segmentation.getNumXYZ ( ); ++j )
       mask.set ( i, j, ( segmentation.get ( i, j ) == 1 ) );
-  
+
+  // We assume that atoms intensities are higher than the void intensities.
+  // So we have to make sure that the mask corresponds to regions of higher intensities.
+  if ( segmentor.getMeanValuesReference()[0][0] > segmentor.getMeanValuesReference()[1][0] )
+    mask.invert();
+
   Segmented.reallocate ( mask.getNumX ( ), mask.getNumY ( ) );
   Segmented = mask;
   

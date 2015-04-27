@@ -45,6 +45,7 @@ void setGaussianWindow ( qc::ScalarArray<_RealType, qc::QC_2D> &Window, const sh
 }
 
 
+
 template <typename _RealType>
 class HardThresholding2DOp : aol::Op<qc::ScalarArray<_RealType, qc::QC_2D> > {
   typedef _RealType RealType;

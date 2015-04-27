@@ -769,6 +769,55 @@ public:
   }
 };
 
+/**
+ * Smooth approximation (two times continuously differentiable) of the Heaviside function
+ * based on a polynomial of degree 5.
+ *
+ * \author Berkels
+ */
+template <typename RealType>
+class C2PolynomialHeavisideFunction{
+  const RealType _epsilon;
+public:
+  C2PolynomialHeavisideFunction( const RealType Epsilon )
+    : _epsilon( Epsilon ) { }
+
+  RealType evaluate( const RealType x ) const {
+    if ( x > _epsilon*0.5 ) {
+      return 1.;
+    }
+    else {
+      if ( x < (-1.)*_epsilon*0.5 ) {
+        return 0.;
+      }
+      else{
+        const RealType position = x / _epsilon + 0.5;
+        return aol::Cub ( position ) * ( ( 6 * position - 15 ) * position + 10 );
+      }
+    }
+  }
+
+  RealType evaluateDerivative( const RealType x ) const {
+    if ( fabs(x) > _epsilon*0.5 ) {
+      return 0.;
+    }
+    else {
+      const RealType position = x / _epsilon + 0.5;
+      return 30 * aol::Sqr ( position ) * ( ( position - 2 ) * position + 1 ) / _epsilon;
+    }
+  }
+
+  RealType evaluateSecondDerivative( const RealType x ) const{
+    if ( fabs(x) > _epsilon*0.5 ) {
+      return 0.;
+    }
+    else {
+      const RealType position = x / _epsilon + 0.5;
+      return 60 * position * ( ( 2 * position - 3 ) * position + 1 ) / aol::Sqr ( _epsilon );
+    }
+  }
+};
+
 //! Prints central differential quotioent and implemented derivative of the Heaviside Funtion.
 //! If they don't match, it's likely that there is a bug in the Heaviside Funtion.
 //! Also calculates the integral over the derivative of the Heaviside Function.

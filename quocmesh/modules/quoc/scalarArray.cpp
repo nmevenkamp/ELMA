@@ -549,13 +549,13 @@ void qc::ScalarArray<_DataType, qc::QC_2D>::loadTIFF ( const char *fileName ) {
       for ( uint32 col = 0; col < width; ++col ) {
         if ( format == SAMPLEFORMAT_INT ) {
           if ( bits == 64 )
-            this->set ( col, row, static_cast<TIFF_INT64_T*>(buf)[col] );
+            this->set ( col, row, static_cast<int64_t*>(buf)[col] );
           else if ( bits == 32 )
-            this->set ( col, row, static_cast<TIFF_INT32_T*>(buf)[col] );
+            this->set ( col, row, static_cast<int32_t*>(buf)[col] );
           else if ( bits == 16 )
-            this->set ( col, row, static_cast<TIFF_INT16_T*>(buf)[col] );
+            this->set ( col, row, static_cast<int16_t*>(buf)[col] );
           else if ( bits == 8 )
-            this->set ( col, row, static_cast<TIFF_INT8_T*>(buf)[col] );
+            this->set ( col, row, static_cast<int8_t*>(buf)[col] );
           else
             throw aol::UnimplementedCodeException ( aol::strprintf ( "%d bits uint per sample unimplemented.", bits ).c_str(), __FILE__, __LINE__ );
         } else if ( format == SAMPLEFORMAT_IEEEFP ) {
@@ -568,13 +568,13 @@ void qc::ScalarArray<_DataType, qc::QC_2D>::loadTIFF ( const char *fileName ) {
         } else {
           // If the format was not defined by the TIFF writer, one usually assumes UINT.
           if ( bits == 64 )
-            this->set ( col, row, static_cast<TIFF_UINT64_T*>(buf)[col] );
+            this->set ( col, row, static_cast<uint64_t*>(buf)[col] );
           else if ( bits == 32 )
-            this->set ( col, row, static_cast<TIFF_UINT32_T*>(buf)[col] );
+            this->set ( col, row, static_cast<uint32_t*>(buf)[col] );
           else if ( bits == 16 )
-            this->set ( col, row, static_cast<TIFF_UINT16_T*>(buf)[col] );
+            this->set ( col, row, static_cast<uint16_t*>(buf)[col] );
           else if ( bits == 8 )
-            this->set ( col, row, static_cast<TIFF_UINT8_T*>(buf)[col] );
+            this->set ( col, row, static_cast<uint8_t*>(buf)[col] );
           else
             throw aol::UnimplementedCodeException ( aol::strprintf ( "%d bits uint per sample unimplemented.", bits ).c_str(), __FILE__, __LINE__ );
         }

@@ -206,6 +206,13 @@ public:
       appendReference( MultiVec[i], deleteFlag );
   }
 
+  void removeReference ( int i ) {
+    if ( vecs[i].deleteFlag )
+      delete vecs[i].ptr;
+
+    vecs.erase ( vecs.begin () + i );
+  }
+
   //! check if *this owns data
   bool isDataOwned ( ) const {
     for ( int i = 0; i < static_cast<int>( vecs.size() ); ++i )
@@ -647,12 +654,30 @@ public:
       vals[j] = (*this)[j][I];
   }
 
+  //! get values at position I in all components, avoiding temporary object
+  void getTo ( const int I, aol::Vector<DataType> &vals ) const {
+    const int vectorSize = vals.size();
+    if ( vectorSize != numComponents() )
+      throw aol::Exception ( "aol::MultiVector<DataType>::getTo ( int, aol::Vector ): size of vector does not match", __FILE__, __LINE__ );
+    for ( int j = 0; j < vectorSize; ++j )
+      vals[j] = (*this)[j][I];
+  }
+
   //! set values at position I in all components
   template < int N >
   void set ( const int I, const aol::Vec<N, DataType> &vals ) {
     if ( N != numComponents() )
       throw aol::Exception ( "aol::MultiVector<DataType>::set ( int, aol::Vec ): size of Vec does not match", __FILE__, __LINE__ );
     for ( int j = 0; j < N; ++j )
+      (*this)[j][I] = vals[j];
+  }
+
+  //! set values at position I in all components
+  void set ( const int I, const aol::Vector<DataType> &vals ) {
+    const int vectorSize = vals.size ();
+    if ( vectorSize != numComponents() )
+      throw aol::Exception ( "aol::MultiVector<DataType>::set ( int, aol::Vector ): size of vector does not match", __FILE__, __LINE__ );
+    for ( int j = 0; j < vectorSize; ++j )
       (*this)[j][I] = vals[j];
   }
   

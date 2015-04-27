@@ -1,5 +1,8 @@
-#ifndef LINEARPROGRAMMING_H_
-#define LINEARPROGRAMMING_H_
+#ifndef __PROJECTORS_H
+#define __PROJECTORS_H
+
+#include <aol.h>
+#include <matrix.h>
 
 
 template <typename _RealType, typename _VectorType, typename _MatrixType>
@@ -17,10 +20,16 @@ public:
   virtual bool isFeasible ( const VectorType &/*X*/ ) const = 0;
 };
 
-
-// Given a constraints matrix A and vector b, and a point p this class calculates the
-// projection x of p onto X = { y in R^n, A y <= b }
-// TODO: find / create algorithm to solve the projection problem
+/*
+ * Not yet implemented!
+ *
+ * Given a constraints matrix A and vector b, and a point p this class calculates the
+ * projection x of p onto \f[X = { y in R^n, A y <= b }\f]
+ * 
+ * TODO: find / create algorithm to solve the projection problem
+ *
+ * \author Mevenkamp
+ */
 template <typename _RealType, typename _VectorType, typename _MatrixType>
 class PolyhedronProjector : public Projector<_RealType, _VectorType, _MatrixType> {
   typedef _RealType RealType;
@@ -51,26 +60,32 @@ public:
   }
 };
 
-
-template <typename _RealType, typename _VectorType, typename _MatrixType>
-class BoxProjector : public Projector<_RealType, _VectorType, _MatrixType> {
+/*
+ * Provides a class that projects vectors onto a box (possibly only in part of the dimensions)
+ * \f[x \in \mathbb{R}^n is projected onto B = \{ x \in \mathbb{R}^n : l_i \leq x_i \leq u_i \forall i \text{ with } c_i=1 \}\f],
+ * where \f[l \in \mathbb{R}^n are the lower bounds, \f[u \in \mathbb{R}^n\f] the upper bounds
+ * and \f[c \in \{0,1\}^n\f] is a BitVector indicating for each dimension if it should be constrained or not.
+ *
+ * \author Mevenkamp
+ */
+template <typename _RealType, typename _VectorType>
+class BoxProjector : public Projector<_RealType, _VectorType, aol::FullMatrix<_RealType> > {
   typedef _RealType RealType;
   typedef _VectorType VectorType;
-  typedef _MatrixType MatrixType;
 protected:
-  const VectorType _lowerBounds, _upperBounds;
-  const aol::BitVector _constrainedDirections;
+  VectorType _lowerBounds, _upperBounds;
+  aol::BitVector _constrainedDirections;
 public:
   BoxProjector ( const VectorType &LowerBounds, const VectorType &UpperBounds )
-    : Projector<RealType, VectorType, MatrixType> ( ), _lowerBounds ( LowerBounds ), _upperBounds ( UpperBounds ),
+    : Projector<RealType, VectorType, aol::FullMatrix<_RealType> > ( ), _lowerBounds ( LowerBounds ), _upperBounds ( UpperBounds ),
       _constrainedDirections ( LowerBounds.Size ( ), true ) {
     if ( LowerBounds.size ( ) != UpperBounds.size ( ) )
       throw aol::Exception ( "Lower and upper bounds dimensions do not match!", __FILE__, __LINE__ );
   }
 
   BoxProjector ( const VectorType &LowerBounds, const VectorType &UpperBounds, const aol::BitVector &ConstrainedDirections )
-      : Projector<RealType, VectorType, MatrixType> ( ), _lowerBounds ( LowerBounds ), _upperBounds ( UpperBounds ),
-        _constrainedDirections ( ConstrainedDirections ) {
+    : Projector<RealType, VectorType, aol::FullMatrix<_RealType> > ( ), _lowerBounds ( LowerBounds ), _upperBounds ( UpperBounds ),
+      _constrainedDirections ( ConstrainedDirections ) {
     if ( LowerBounds.size ( ) != UpperBounds.size ( ) )
       throw aol::Exception ( "Lower and upper bounds dimensions do not match!", __FILE__, __LINE__ );
 
@@ -105,5 +120,48 @@ public:
   }
 };
 
+/*
+ * Provides a class that projects vectors onto the canonical simplex, i.e.
+ * \f[x \in \mathbb{R}^n is projected onto U = \{ x \in \mathbb{R}^n : x_i \geq 0 \forall i, \sum_i x_i = 1 \}\f]
+ *
+ * Algorithm implemented based on the following paper:
+ * C. Michelot: A Finite Algorithm for Finding the Projection of a Point onto the Canonical Simplex of \f[\mathbb{R}^n\f].
+ * J. Optim. Theory Appl., 50(1):195--200, 1986.
+ *
+ * \author Mevenkamp
+ */
+template <typename _RealType, typename _VectorType>
+class CanonicalSimplexProjector : public Projector<_RealType, _VectorType, aol::FullMatrix<_RealType> > {
+  typedef _RealType RealType;
+  typedef _VectorType VectorType;
+public:
+  CanonicalSimplexProjector ( ) : Projector<RealType, VectorType, aol::FullMatrix<_RealType> > ( ) { }
+  
+  void apply ( const VectorType &Arg, VectorType &Dest ) const {
+    VectorType x ( Arg );
+    Dest.setAll ( -1.0 );
+    std::set<unsigned int> indices;
+    while ( Dest.getMinValue ( ) < 0 ) {
+      RealType xSum = x.sum ( );
+      for ( unsigned int i=0; i<Dest.size ( ) ; ++i ) {
+        if ( indices.find ( i ) == indices.end ( ) ) Dest[i] = x[i] - ( xSum - 1 ) / ( Arg.size ( ) - indices.size ( ) );
+        else Dest[i] = 0.0;
+      }
+      if ( Dest.getMinValue ( ) < 0 ) {
+        for ( unsigned int i=0; i<Dest.size ( ) ; ++i ) {
+          if ( Dest[i] < 0 ) {
+            indices.insert ( i );
+            x[i] = 0.0;
+          } else x[i] = Dest[i];
+        }
+      }
+    }
+  }
+  
+  bool isFeasible ( const VectorType &X ) const {
+    return ( X.getMinValue ( ) >= 0 && X.sum ( ) == 1 );
+  }
+};
 
-#endif /* LINEARPROGRAMMING_H_ */
+
+#endif /* PROJECTORS_H_ */

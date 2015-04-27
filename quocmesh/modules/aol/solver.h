@@ -74,8 +74,17 @@ public:
     _infoPtr->setQuietMode ( Quiet );
   }
   // ------------------------------------------------------------------------
+  //! Nothing is printed!
+  void setMegaQuietMode ( const bool Quiet = true ) {
+    _infoPtr->setMegaQuietMode ( Quiet );
+  }
+  // ------------------------------------------------------------------------
   bool getQuietMode() const {
     return _infoPtr->getQuietMode();
+  }
+  // ------------------------------------------------------------------------
+  bool getMegaQuietMode() const {
+    return _infoPtr->getMegaQuietMode();
   }
   // ------------------------------------------------------------------------
   //! Return reference to operator being inverted

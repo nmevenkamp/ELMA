@@ -45,6 +45,8 @@ public:
   bool stoppingCriterionIsFulfilled() const;
 
   using IterativeInfo<RealType>::startIterations;
+  using IterativeInfo<RealType>::setMegaQuietMode;
+  using IterativeInfo<RealType>::getMegaQuietMode;
   void startIterations ( RealType normRhs,
                          RealType normInitialResiduum,
                          string methodName,
@@ -297,6 +299,8 @@ void SolverInfo<RealType>::logEndTable ( ostream & out ) const {
 }
 
 
+
+
 template <typename RealType>
 void SolverInfo<RealType>::finishIterations ( const RealType exactResidual ) {
   const RealType estimatedResidual = this->_finalResidual;
@@ -307,9 +311,10 @@ void SolverInfo<RealType>::finishIterations ( const RealType exactResidual ) {
     this->_out << "recomputed residual:       "
                << scientificFormat ( exactResidual ) << endl;
 
-  if ( ( fabs ( estimatedResidual / exactResidual ) > 10.0 ) || ( fabs ( estimatedResidual / exactResidual ) < 0.1 ) ) {
+  if ( !this->getMegaQuietMode() && ( ( fabs ( estimatedResidual / exactResidual ) > 10.0 ) || ( fabs ( estimatedResidual / exactResidual ) < 0.1 ) ) ) {
     this->_out << aol::color::red << "Estimated residual " << aol::detailedFormat ( estimatedResidual )  << " and recomputed residual " << aol::detailedFormat ( exactResidual ) << " differ by more than one order of magnitude." << aol::color::reset << endl;
   }
+  
 }
 
 
@@ -321,11 +326,13 @@ void SolverInfo<RealType>::finishIterations () {
   // of testing the max iteration number by hand. But in
   // InterruptableIterativeInfo, maxIterIsReached() is
   // overloaded with a slightly different behaviour.
-  if ( ( this->getIterationCount() >= this->getMaxIterations() ) && !stoppingCriterionIsFulfilled() ) {
-    this->_out << aol::color::red << "Too many iterations: solver has not converged to " << getTolerableError() << " within " << this->getIterationCount() << " iterations." << aol::color::reset << endl;
-  }
-  if ( this->currentResidualIsNaN() ) {
-    this->_out << aol::color::red << "NaN residual found after " << this->getIterationCount() << " iterations." << aol::color::reset << endl;
+  if ( !this->getMegaQuietMode() ) {
+    if ( ( this->getIterationCount() >= this->getMaxIterations() ) && !stoppingCriterionIsFulfilled() ) {
+      this->_out << aol::color::red << "Too many iterations: solver has not converged to " << getTolerableError() << " within " << this->getIterationCount() << " iterations." << aol::color::reset << endl;
+    }
+    if ( this->currentResidualIsNaN() ) {
+      this->_out << aol::color::red << "NaN residual found after " << this->getIterationCount() << " iterations." << aol::color::reset << endl;
+    }
   }
 }
 

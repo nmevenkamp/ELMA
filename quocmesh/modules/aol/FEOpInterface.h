@@ -1840,10 +1840,10 @@ public:
   //! interface function, has to be provided in derived classes.
   void getNonlinearity ( auto_container<NumCompArg, aol::DiscreteFunctionDefault<ConfiguratorType> > &DiscFuncs,
                          const typename ConfiguratorType::ElementType &El,
-                         int QuadPoint, const typename ConfiguratorType::DomVecType &/*RefCoord*/,
+                         int QuadPoint, const typename ConfiguratorType::DomVecType &RefCoord,
                          aol::Vec<NumCompDest, RealType> &NL ) const {
     throw aol::Exception ( "called the interface function", __FILE__, __LINE__ );
-    this->asImp().getNonlinearity ( DiscFuncs, El, QuadPoint, NL );
+    this->asImp().getNonlinearity ( DiscFuncs, El, QuadPoint, RefCoord, NL );
   }
 
 protected:

@@ -21,13 +21,16 @@
 #include <parameterParser.h>
 #include <scalarArray.h>
 #include "bumpFit.h"
-#include "linearRegression.h"
 #include "nonLinearRegression.h"
 
 const static double GAMMA = 1e-4, EPSILON = 1e-3;
 const static int MAXIT = 10000;
 
-template <typename _RealType, typename _MatrixType, typename _LinearRegressionType, typename _ScalarPictureType, typename _ColoredPictureType>
+template <typename _RealType,
+          typename _MatrixType = aol::FullMatrix<_RealType>,
+          typename _LinearRegressionType = LinearRegressionQR<_RealType>,
+          typename _ScalarPictureType = qc::ScalarArray<_RealType, qc::QC_2D>,
+          typename _ColoredPictureType = qc::MultiArray<_RealType, qc::QC_2D, 3> >
 class AtomFinder {
   typedef _RealType RealType;
   typedef _MatrixType MatrixType;
@@ -38,7 +41,7 @@ class AtomFinder {
   typedef qc::RectangularGridConfigurator<RealType, qc::QC_2D, aol::GaussQuadrature<RealType, qc::QC_2D, 3> > ConfiguratorType;
   typedef typename ConfiguratorType::InitType InitType;
   typedef typename ComponentsCollection<RealType>::NonEmptyComponentsIterator NonEmptyComponentsIterator;
-  typedef BoxProjector<RealType, aol::Vector<RealType>, MatrixType> ProjectorType;
+  typedef BoxProjector<RealType, aol::Vector<RealType> > ProjectorType;
 protected:
   std::string _outputDir;
   bool _quietMode, _diskOutput;

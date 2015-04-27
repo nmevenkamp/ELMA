@@ -18,11 +18,13 @@ We appreciate any feedback on your experience with ELMA. In case you encounter a
 ___
 If you publish results generated using ELMA, please refer to our related work:
 
-**[1]** N. Mevenkamp, P. Binev, W. Dahmen, P.M. Voyles, A.B. Yankovich, and B. Berkels: **Poisson Noise Removal from High-Resolution STEM Images based on periodic Block-matching**, Advanced Structural and Chemical Imaging, 2015.
+**[1]** N. Mevenkamp, P. Binev, W. Dahmen, P.M. Voyles, A.B. Yankovich, and B. Berkels:
+    **Poisson noise removal from high-resolution STEM images based on periodic block matching**.
+    Advanced Structural and Chemical Imaging 2015, 1:3. [ [PDF](http://www.ascimaging.com/content/pdf/s40679-015-0004-8.pdf) | [DOI](http://dx.doi.org/10.1186/s40679-015-0004-8) | [BIB](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/BIRS2015/MeBiDaVoYaBe2015.bib) ]
 
 **[2]** N. Mevenkamp, A.B. Yankovich, P.M. Voyles, and B. Berkels: **Non-local Means**
     **for Scanning Transmission Electron Microscopy Images and Poisson Noise based**
     **on Adaptive Periodic Similarity Search and Patch Regularization**, in
     J. Bender, A. Kuijper, T. von Landesberger, H. Theisel, and P. Urban (Eds.),
     VMV 2014: Vision, Modeling & Visualization, pp. 63–70.
-    Eurographics Association, Darmstadt, Germany (2014). [ [PDF](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.pdf) | [DOI](http://dx.doi.org/10.2312/vmv.20141277) | [BIB](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.bib) ]
+    Eurographics Association, Darmstadt, Germany, 2014. [ [PDF](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.pdf) | [DOI](http://dx.doi.org/10.2312/vmv.20141277) | [BIB](http://www.aices.rwth-aachen.de:8080/~mevenkamp/papers/VMV2014/MeYaVoBe2014.bib) ]

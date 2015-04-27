@@ -111,10 +111,10 @@ class PeriodicSimilaritySearchIterator : public SimilaritySearchIterator<_RealTy
 protected:
   EMNeighborhoodFilter<RealType, PictureType, _NeighborhoodFilterTrait, _BaseClass> &_filter;
   
-  const short _localNs = 5;
+  static const short _localNs = 5;
   const short _localNsOffset;
   
-  aol::Vector<RealType> _angles, _periods;
+  aol::Vec2<RealType> _angles, _periods;
   aol::Vec2<short> _localMinCoords, _curAxisDirection, _curFirstAxisCenter, _curSecondAxisCenter;
   RealType _localMinDist;
   short _localXL, _localXR, _localYL, _localYR;
@@ -128,9 +128,8 @@ public:
       _localNsOffset ( ( _localNs - 1 ) / 2 ),
       _angles ( 2 ), _periods ( 2 ),
       _c ( aol::Vec2<RealType> ( 0, 0 ), aol::Vec2<RealType> ( Filter._input.getNumX ( )-1, Filter._input.getNumY ( )-1 ) ) {
-    PatternAnalyzer<RealType, PictureType> patternAnalyzer ( _filter._input, _filter._outputDir, true, Filter._progressBar );
-    _angles = patternAnalyzer.getPeriodicityAnglesRadians ( );
-    _periods = patternAnalyzer.getPeriodicitySpacingsPixels ( );
+    PatternAnalyzer<RealType, PictureType> patternAnalyzer ( _filter._outputDir, true, Filter._progressBar );
+    patternAnalyzer.getLatticeAnglesAndPeriods ( _angles, _periods, _filter._input, FourierPeaksAndSineFit );
     if ( !_filter._quietMode )
       std::cerr << "Periodicity analysis: angles=" << _angles << "; spacings=" << _periods << std::endl;
   }

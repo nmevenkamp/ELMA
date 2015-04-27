@@ -102,9 +102,14 @@ public:
         const int windowBits = 15 | 32;
 
         // intialize
+// Only recent GCC versions allow to the diagnostic pragma inside functions.
+#if ( defined ( __GNUC__ ) ) && ( GCC_VERSION >= 40600 )
         WARNING_OFF ( old-style-cast )
+#endif
         ret = inflateInit2 (&strm, windowBits);
+#if ( defined ( __GNUC__ ) ) && ( GCC_VERSION >= 40600 )
         WARNING_ON ( old-style-cast )
+#endif
         if (ret != Z_OK)  {
           cerr << aol::color::error << "zlib returned an error! Aborting..." << aol::color::reset << endl;
           return;
@@ -247,9 +252,13 @@ public:
         if ( compressOutputGzip ) windowBits |= 16; // Gzip encoding
 
         // intialize
+#if ( defined ( __GNUC__ ) ) && ( GCC_VERSION >= 40600 )
         WARNING_OFF ( old-style-cast )
+#endif
         ret = deflateInit2 (&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits, 9 /* maximum memory level*/, Z_DEFAULT_STRATEGY);
+#if ( defined ( __GNUC__ ) ) && ( GCC_VERSION >= 40600 )
         WARNING_ON ( old-style-cast )
+#endif
         if (ret != Z_OK)  {
           cerr << aol::color::error << "zlib returned an error! Aborting..." << aol::color::reset << endl;
           return;

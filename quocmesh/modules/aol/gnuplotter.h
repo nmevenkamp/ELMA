@@ -20,7 +20,8 @@ enum PlotStyle {
   GNUPLOT_LINE,
   GNUPLOT_VECTOR,
   GNUPLOT_3DLINE,
-  GNUPLOT_BOXES
+  GNUPLOT_BOXES,
+  GNUPLOT_POINTS
 };
 
 /**
@@ -182,7 +183,7 @@ public:
     generateFunctionPlot(positions, derivativeValues);
   }
 
-  void generateCurvePlot ( const aol::RandomAccessContainer<aol::Vec<2, RealType> > &Points ) {
+  void generateCurvePlot ( const aol::RandomAccessContainer<aol::Vec<2, RealType> > &Points, const bool PlotAsPoints = false ) {
     char tempFileName[1024];
     sprintf ( tempFileName, "curve.datXXXXXX" );
     ofstream tempOutFile;
@@ -194,7 +195,14 @@ public:
     tempOutFile.close();
     std::string tempFileNameString = tempFileName;
     _datafileFileNameVector.push_back(tempFileNameString);
-    _datafilePlotStyleVector.push_back(GNUPLOT_LINE);
+    _datafilePlotStyleVector.push_back( PlotAsPoints ? GNUPLOT_POINTS : GNUPLOT_LINE );
+  }
+
+  void generateCurvePlot ( const aol::MultiVector<RealType> &Points, const bool PlotAsPoints = false ) {
+    aol::RandomAccessContainer<aol::Vec<2, RealType> > pointsRAC;
+    for ( int i = 0; i < Points.numComponents(); ++i )
+      pointsRAC.constructDatumAndPushBack ( aol::Vec2<RealType> ( Points[i][0], Points[i][1] ) );
+    generateCurvePlot ( pointsRAC, PlotAsPoints );
   }
 
   void generateClosedCurvePlot ( const aol::MultiVector<RealType> &Points ) {
@@ -397,6 +405,11 @@ public:
         additionalPlotCommand += "\" w boxes";
       }
       break;
+    case GNUPLOT_POINTS:
+      {
+        additionalPlotCommand += "\" w p";
+      }
+        break;
     default:
       {
         // Don't add an empty plot command.
@@ -746,6 +759,15 @@ template <typename RealType>
   else
     plotter.genPlot( aol::GNUPLOT_PDF );
 }
+
+/**
+ * \author Berkels
+ */
+void plotPrecisionMatches ( const string GnuplotdatOutputFile,
+                            const string &BaseOutName,
+                            const string &BackgroundImageFile,
+                            const string &PrecXMatchFile,
+                            const string &PrecYMatchFile );
 
 } // namespace aol
 #endif //__GNUPLOTTER_H
